@@ -1,3 +1,3 @@
 # FinancePlanner
-Budget Planning, Transaction Mgt and Interactive Dashboards.
+Budget Planning, Transaction Mgt and Interactive Dashboards...
 
