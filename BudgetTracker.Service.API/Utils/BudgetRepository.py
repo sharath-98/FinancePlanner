@@ -128,6 +128,43 @@ class BudgetRepository:
             return make_response(str(e))
 
 
+    def update_src_data(self, data):
+        try:
+            table_name = ""
+            if data['type'] == 'Expenses':
+                table_name = "budgets.expenses"
+            elif data['type'] == 'Income':
+                table_name = "budgets.income"
+            elif data['type'] == 'Debts':
+                table_name = "budgets.debt"
+            else:
+                table_name = "budgets.savings"
+
+            month = datetime.strptime(data['month'],'%b').month
+            cat_query = f"select id from budgets.categories where name='{data['category']}'"
+            self.cur.execute(cat_query)
+            category_id = self.cur.fetchone()[0]
+            print(category_id)
+
+            query = f"SELECT id, amount FROM {table_name} WHERE category_id = {category_id} AND EXTRACT(MONTH FROM date) = {month}  AND EXTRACT(YEAR FROM date) = {data['year']}"
+
+            self.cur.execute(query)
+            row = self.cur.fetchone()
+
+            if row:
+                data_id, existing_amount = row
+                print(data_id)
+                update_sql = f"UPDATE {table_name} SET amount = amount + %s WHERE id=%s"
+                self.cur.execute(update_sql, (data['amount'], data_id))
+            else:
+                date = "" + str(data['year']) + "-" + str(month) + "-01"
+                insert_sql = f"INSERT INTO {table_name} (category_id, amount, date) VALUES (%s, %s, %s)"
+                self.cur.execute(insert_sql, (category_id, data['amount'], date))
+
+        except psycopg2.Error as e:
+            return make_response(str(e))
+
+
     def on_transaction_update_update_src(self, transaction):
         try:
 

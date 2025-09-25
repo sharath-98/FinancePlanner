@@ -164,11 +164,13 @@ export class BudgetPlanner implements OnInit {
   onCellValueChanged(event: any, category: any) {
     const colId = event.colDef.field;
     let payload = {
-      month: colId,
-      year: this.selectedYear,
-      type: category,
-      amount: event.data[colId],
-      category: event.data[category],
+      data: {
+        month: colId,
+        year: this.selectedYear,
+        type: category,
+        amount: event.data[colId],
+        category: event.data[category],
+      }
     };
 
     if (category == 'Income') {
