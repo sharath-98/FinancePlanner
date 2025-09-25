@@ -11,4 +11,7 @@
         <mat-icon>settings</mat-icon>
     </button>
 </mat-toolbar>
+<div *ngIf="loading$ | async" class="spinner-overlay">
+    <mat-spinner></mat-spinner>
+</div>
 <router-outlet></router-outlet>
