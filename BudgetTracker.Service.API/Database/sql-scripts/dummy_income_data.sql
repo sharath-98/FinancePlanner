@@ -1,0 +1,10 @@
+INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 1, 3100, '1-Jan-2025');
+INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 2, 100, '1-Jan-2025');
+INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 3, 70, '1-Jan-2025');
+INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 4, 70, '1-Jan-2025');
+INSERT INTO budgets.income (user_id, category_id, amount, date) values (2, 5, 3500, '1-Jan-2025');
+INSERT INTO budgets.income (user_id, category_id, amount, date) values (2, 6, 100, '1-Jan-2025');
+INSERT INTO budgets.income (user_id, category_id, amount, date) values (2, 7, 200, '1-Jan-2025');
+INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 8, 100, '1-Jan-2025');
+INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 9, 0, '1-Jan-2025');
+commit;
