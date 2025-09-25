@@ -154,7 +154,7 @@ class BudgetRepository:
             if row:
                 data_id, existing_amount = row
                 print(data_id)
-                update_sql = f"UPDATE {table_name} SET amount = amount + %s WHERE id=%s"
+                update_sql = f"UPDATE {table_name} SET amount = %s WHERE id=%s"
                 self.cur.execute(update_sql, (data['amount'], data_id))
             else:
                 date = "" + str(data['year']) + "-" + str(month) + "-01"
