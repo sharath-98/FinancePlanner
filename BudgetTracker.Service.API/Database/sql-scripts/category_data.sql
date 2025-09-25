@@ -33,6 +33,8 @@ commit;
 
 INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Housing');
 INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Utilities');
+INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Mobile');
+INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Wifi');
 INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Groceries');
 INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Transportation');
 INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Insurances');

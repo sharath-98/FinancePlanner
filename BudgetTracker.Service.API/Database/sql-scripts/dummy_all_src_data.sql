@@ -30,6 +30,9 @@ INSERT INTO budgets.expenses ( category_id, amount, date) values ( 46, 0, '1-Jan
 INSERT INTO budgets.expenses ( category_id, amount, date) values ( 47, 0, '1-Jan-2025');
 INSERT INTO budgets.expenses ( category_id, amount, date) values ( 48, 0, '1-Jan-2025');
 INSERT INTO budgets.expenses ( category_id, amount, date) values ( 49, 0, '1-Jan-2025');
+INSERT INTO budgets.expenses ( category_id, amount, date) values ( 56, 0, '1-Jan-2025');
+INSERT INTO budgets.expenses ( category_id, amount, date) values ( 57, 0, '1-Jan-2025');
+INSERT INTO budgets.expenses ( category_id, amount, date) values ( 58, 0, '1-Jan-2025');
 
 INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 1, 0, '1-Jan-2025');
 INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 2, 0, '1-Jan-2025');
