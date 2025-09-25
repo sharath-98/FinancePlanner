@@ -11,6 +11,10 @@ export class BudgetPlannerService {
 
   constructor(private http: HttpClient) { }
 
+  update_src_data(payload: any): Observable<any> {
+    return this.http.post<any>(this.BASE_URL + "updateSrc", payload);
+  }
+
   get_monthly_income(payload: any): Observable<any> {
     return this.http.post<any>(this.BASE_URL + "income", payload);
   }

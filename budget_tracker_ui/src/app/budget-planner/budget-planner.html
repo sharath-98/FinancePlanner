@@ -72,7 +72,7 @@
                 <ag-grid-angular class="ag-theme-alpine custom-expense-theme" style="width: 'fit-content'; height: 750px;"
                     [rowData]="rowExpenseData" [columnDefs]="colExpenseDefs" [defaultColDef]="defaultColDef"
                     [autoSizeStrategy]="autoSizeStrategy" (gridReady)="onGridReady($event, 'Expense')"
-                    (cellValueChanged)="onCellValueChanged($event, 'Expense')" />
+                    (cellValueChanged)="onCellValueChanged($event, 'Expenses')" />
             </div>
 
         </mat-expansion-panel>
