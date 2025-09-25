@@ -1,0 +1,85 @@
+.main-container {
+  display: flex;
+  flex-direction: column;
+  margin: 40px;
+}
+
+.grid-container {
+  margin: 20px 0px 20px 0px;
+}
+
+.custom-budget-theme {
+  --ag-background-color: lightgreen;      /* Custom background */
+  --ag-foreground-color: black;      /* Custom text color */
+  --ag-header-background-color: rgb(3, 149, 3); /* Header background */
+  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
+}
+
+.custom-expense-theme {
+  --ag-background-color: rgb(245, 114, 114);      /* Custom background */
+  --ag-foreground-color: white;    /* Custom text color */
+  --ag-header-background-color: red; /* Header background */
+  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
+}
+
+.custom-savings-theme {
+  --ag-background-color: rgb(101, 200, 233);      /* Custom background */
+  --ag-foreground-color: indigo;    /* Custom text color */
+  --ag-header-background-color: indigo; /* Header background */
+  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
+}
+
+.custom-debt-theme {
+  --ag-background-color: lightyellow;      /* Custom background */
+  --ag-foreground-color: black;    /* Custom text color */
+  --ag-header-background-color: yellow; /* Header background */
+  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
+}
+
+.custom-allocated-theme {
+  --ag-background-color: rgb(35, 178, 226);      /* Custom background */
+  --ag-foreground-color: white;    /* Custom text color */
+  --ag-header-background-color: #3f51b5; /* Header background */
+  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
+}
+
+::ng-deep .ag-row.ag-row-last {
+    font-weight: bold !important;
+}
+
+/* Customize header cells */
+::ng-deep .custom-budget-theme .ag-header-cell-text, ::ng-deep .custom-expense-theme .ag-header-cell-text, ::ng-deep .custom-savings-theme .ag-header-cell-text, ::ng-deep .custom-allocated-theme .ag-header-cell-text {
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+::ng-deep .custom-debt-theme .ag-header-cell-text {
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: black !important;
+  font-weight: bold !important;
+}
+
+/* Customize grid rows */
+.custom-budget-theme .ag-row {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 13px;
+}
+
+/* Customize selected rows */
+.custom-budget-theme .ag-row-selected {
+  background-color: #81d4fa !important;
+}
+
+button{
+  background: #3f51b5;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  margin: 5px;
+}
+

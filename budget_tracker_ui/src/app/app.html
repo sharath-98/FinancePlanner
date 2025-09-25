@@ -1,0 +1,14 @@
+<mat-toolbar color="primary">
+    <button class="example-icon" aria-label="Example icon-button with menu icon">
+        <mat-icon>attach_money</mat-icon>
+    </button>
+    <span class="logo">Finance</span>
+    <span style="margin-left: 20px; font-size: 14px; cursor: pointer" routerLink="home" routerLinkActive="active" >Dashboard</span>
+    <span style="margin-left: 20px; font-size: 14px; cursor: pointer" routerLink="planner" [routerLinkActive]="['active']" >Budget Planning</span>
+    <span style="margin-left: 20px; font-size: 14px; cursor: pointer" routerLink="transactions" [routerLinkActive]="['active']" >Transactions</span>
+    <span class="example-spacer"></span>
+    <button mat-icon-button class="example-icon">
+        <mat-icon>settings</mat-icon>
+    </button>
+</mat-toolbar>
+<router-outlet></router-outlet>

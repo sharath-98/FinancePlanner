@@ -1,0 +1,97 @@
+<div class="main-container">
+    <mat-form-field appearance="outline" style="width: 200px;">
+        <mat-label>Year</mat-label>
+        <mat-select [(value)]="selectedYear" (selectionChange)="onYearChange($event)">
+            <mat-option *ngFor="let year of years" [value]="year">
+                {{ year }}
+            </mat-option>
+        </mat-select>
+    </mat-form-field>
+
+    <div class="grid-container" style="margin-bottom: 45px;">
+        <p style="color: #3f51b5; padding-bottom: 1px; font-size: 18px; display: flex; align-items:center">
+            <strong>Unallocated Amount</strong> <button style="background: white" (click)="getUnallocated()">
+                <mat-icon style="cursor: pointer; color: #3f51b5; background: white">refresh</mat-icon>
+            </button>
+        </p>
+
+        <ag-grid-angular class="ag-theme-alpine custom-allocated-theme" style="width: 'fit-content'; height: 110px;"
+            [rowData]="allocatedRowData" [columnDefs]="common_colDefs" [defaultColDef]="defaultColDef" [autoSizeStrategy]="autoSizeStrategy"
+            (gridReady)="onGridReady($event, 'Allocated')" (cellValueChanged)="onCellValueChanged($event, 'Allocated')" />
+    </div>
+
+    <div class="example-action-buttons" style="margin-bottom: 10px;">
+        <button mat-button style="padding: 10px" (click)="accordion.openAll()">Expand All</button>
+        <button mat-button style="padding: 10px" (click)="accordion.closeAll()">Collapse All</button>
+    </div>
+    <mat-accordion multi>
+        <mat-expansion-panel (opened)="incomePanelOpenState = true" (closed)="incomePanelOpenState = false">
+            <mat-expansion-panel-header>
+                <mat-panel-title>
+                    Income Tracker
+                </mat-panel-title>
+            </mat-expansion-panel-header> 
+
+            <button style="padding: 10px; background: rgb(3, 149, 3)" (click)="addNewRowBeforeTotal()">Add New Income Source</button>
+
+            <div class="grid-container">
+                <ag-grid-angular class="ag-theme-alpine custom-budget-theme" style="width: 'fit-content'; height: 490px;"
+                    [rowData]="rowData" [columnDefs]="colDefs" [defaultColDef]="defaultColDef"
+                    [autoSizeStrategy]="autoSizeStrategy" (gridReady)="onGridReady($event, 'Income')"
+                    (cellValueChanged)="onCellValueChanged($event, 'Income')" />
+            </div>
+        </mat-expansion-panel>
+
+        <mat-expansion-panel (opened)="debtPanelOpenState = true" (closed)="debtPanelOpenState = false">
+            <mat-expansion-panel-header>
+                <mat-panel-title>
+                    Debt Tracker
+                </mat-panel-title>
+            </mat-expansion-panel-header>
+        
+            <button style="padding: 10px; background: yellow; color: black" (click)="addNewRowBeforeTotal()">Add New Debt</button>
+        
+            <div class="grid-container">
+                <ag-grid-angular class="ag-theme-alpine custom-debt-theme" style="width: 'fit-content'; height: 230px;"
+                    [rowData]="rowDebtData" [columnDefs]="colDebtsDefs" [defaultColDef]="defaultColDef"
+                    [autoSizeStrategy]="autoSizeStrategy" (gridReady)="onGridReady($event, 'Debts')"
+                    (cellValueChanged)="onCellValueChanged($event, 'Debts')" />
+            </div>
+        </mat-expansion-panel>
+
+        <mat-expansion-panel (opened)="expensePanelOpenState = true" (closed)="expensePanelOpenState = false">
+            <mat-expansion-panel-header>
+                <mat-panel-title>
+                    Expense Tracker
+                </mat-panel-title>
+            </mat-expansion-panel-header>
+            
+            <button style="padding: 10px; background: red">Add New Expense Source</button>
+
+            <div class="grid-container">
+                <ag-grid-angular class="ag-theme-alpine custom-expense-theme" style="width: 'fit-content'; height: 750px;"
+                    [rowData]="rowExpenseData" [columnDefs]="colExpenseDefs" [defaultColDef]="defaultColDef"
+                    [autoSizeStrategy]="autoSizeStrategy" (gridReady)="onGridReady($event, 'Expense')"
+                    (cellValueChanged)="onCellValueChanged($event, 'Expense')" />
+            </div>
+
+        </mat-expansion-panel>
+
+        <mat-expansion-panel (opened)="savingsPanelOpenState = true" (closed)="savingsPanelOpenState = false">
+            <mat-expansion-panel-header>
+                <mat-panel-title>
+                    Savings Tracker
+                </mat-panel-title>
+            </mat-expansion-panel-header>
+
+            <button style="padding: 10px; background: indigo">Add New Savings Destination</button>
+
+            <div class="grid-container">
+                <ag-grid-angular class="ag-theme-alpine custom-savings-theme" style="width: 'fit-content'; height: 600px;"
+                    [rowData]="rowSavingsData" [columnDefs]="colSavingsDefs" [defaultColDef]="defaultColDef"
+                    [autoSizeStrategy]="autoSizeStrategy" (gridReady)="onGridReady($event, 'Savings')"
+                    (cellValueChanged)="onCellValueChanged($event, 'Savings')" />
+            </div>
+        </mat-expansion-panel>
+    </mat-accordion>
+</div>

@@ -1,0 +1,67 @@
+.main-container {
+    width: 100%;
+    display: flex;
+    height: 100vh;
+}
+
+.left-container {
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.right-container {
+    width: 70%;
+    margin: 20px 20px 20px 30px;
+    height: 500px;
+}
+
+.custom-expense-theme {  
+  --ag-background-color: lightgreen;      /* Custom background */
+  --ag-foreground-color: black;      /* Custom text color */
+  --ag-header-background-color: rgb(3, 149, 3); /* Header background */
+  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
+}
+
+::ng-deep .custom-expense-theme .ag-header-cell-text {
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+.form-card {
+  width: 90%;
+  margin: 24px 0 0 24px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: flex-start;
+}
+
+.form-grid {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+button{
+  background: #3f51b5;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  margin: 5px;
+}
+
+
+.details-field {
+  grid-column: 1 / -1;
+}
+
+.submit-btn {
+  text-align: right;
+  padding-top: 4px;
+  padding: 0px 20px 20px 20px;
+}

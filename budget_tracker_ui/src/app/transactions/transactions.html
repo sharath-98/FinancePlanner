@@ -1,0 +1,106 @@
+<div class="main-container">
+    <div class="left-container">
+        <div class="form-container">
+            <mat-card class="form-card">
+                <h3 style="color: #3f51b5; margin-left: 20px;">New Expense</h3>
+                <div class="form-grid">
+                    <form [formGroup]="transactionForm" (ngSubmit)="onSubmit()">
+                        <div style="width: 100%; justify-content: center; display: flex">
+                            <mat-form-field appearance="outline" style="width: 80%;">
+                                <mat-label>Category</mat-label>
+                                <input matInput type="text" formControlName="category" [matAutocomplete]="auto">
+                                <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayCategory">
+                                    <mat-option *ngFor="let option of filteredCategories | async" [value]="option">
+                                        {{ option.name }}
+                                    </mat-option>
+                                </mat-autocomplete>
+                            </mat-form-field>
+                        </div>
+                        <div style="width: 100%; justify-content: center; display: flex">
+                            <mat-form-field appearance="outline" style="width: 80%;">
+                                <mat-label>Merchant</mat-label>
+                                <input matInput formControlName="merchant" required>
+                            </mat-form-field>
+                        </div>
+
+
+                        <div style="width: 100%; justify-content: center; display: flex">
+                            <mat-form-field appearance="outline" style="width: 80%;">
+                                <mat-label>Date</mat-label>
+                                <input matInput [matDatepicker]="picker" formControlName="date" required>
+                                <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                                <mat-datepicker #picker></mat-datepicker>
+                            </mat-form-field>
+                        </div>
+
+                        <div style="width: 100%; justify-content: center; display: flex">
+                            <mat-form-field appearance="outline" style="width: 80%;">
+                                <mat-label>Amount</mat-label>
+                                <input matInput type="number" formControlName="amount" required>
+                            </mat-form-field>
+                        </div>
+                        
+                        <div style="width: 100%; justify-content: center; display: flex">
+                            <mat-form-field appearance="outline" style="width: 80%;">
+                                <mat-label>Paid By</mat-label>
+                                <mat-select formControlName="paidby" required>
+                                    <mat-option *ngFor="let t of users" [value]="t.id">{{t.name}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div style="width: 100%; justify-content: center; display: flex">
+                            <mat-form-field appearance="outline" style="width: 80%;">
+                                <mat-label>Type</mat-label>
+                                <mat-select formControlName="type" required>
+                                    <mat-option *ngFor="let t of types" [value]="t">{{t}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div style="width: 100%; justify-content: center; display: flex">
+                            <mat-form-field appearance="outline" style="width: 80%;">
+                                <mat-label>Currency</mat-label>
+                                <mat-select formControlName="currency" required>
+                                    <mat-option *ngFor="let curr of currencies" [value]="curr">{{curr}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div style="width: 100%; justify-content: center; display: flex">
+                            <mat-form-field appearance="outline" class="details-field" style="width: 80%;">
+                                <mat-label>Details</mat-label>
+                                <textarea matInput formControlName="details" rows="2"></textarea>
+                            </mat-form-field>
+                        </div>
+
+
+                        <div class="submit-btn">
+                            <button mat-button style="padding: 10px; background: rgb(3, 149, 3)">Reset</button>
+                            <button mat-button style="padding: 10px; width: 100px" type="submit"
+                                [disabled]="transactionForm.invalid">Submit</button>
+                        </div>
+
+                    </form>
+                </div>
+            </mat-card>
+        </div>
+        <div class="analysis-container">
+
+        </div>
+    </div>
+    <div class="right-container">
+        <mat-form-field appearance="outline" style="width: 200px;">
+            <mat-label>Year</mat-label>
+            <mat-select [(value)]="selectedYear" (selectionChange)="onYearChange($event)">
+                <mat-option *ngFor="let year of years" [value]="year">
+                    {{ year }}
+                </mat-option>
+            </mat-select>
+        </mat-form-field>
+        <ag-grid-angular class="ag-theme-alpine custom-expense-theme" style="width: 'fit-content'; height: 80vh;"
+            [rowData]="expenseRowData" [columnDefs]="colDefs" [defaultColDef]="defaultColDef"
+            [autoSizeStrategy]="autoSizeStrategy" (gridReady)="onGridReady($event)"
+            (cellValueChanged)="onCellValueChanged($event)" />
+    </div>
+</div>

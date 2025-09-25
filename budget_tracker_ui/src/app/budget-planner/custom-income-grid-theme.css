@@ -1,0 +1,25 @@
+.ag-theme-alpine.custom-budget-theme {
+  --ag-background-color: red;      /* Custom background */
+  --ag-foreground-color: #333333;      /* Custom text color */
+  --ag-header-background-color: #264653; /* Header background */
+  --ag-header-foreground-color: white; /* Header text color */
+  --ag-row-hover-color: #e0f7fa;       /* Row hover */
+}
+
+/* Customize header cells */
+.ag-theme-alpine.custom-budget-theme .ag-header-cell-label {
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+/* Customize grid rows */
+.ag-theme-alpine.custom-budget-theme .ag-row {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 13px;
+}
+
+/* Customize selected rows */
+.ag-theme-alpine.custom-budget-theme .ag-row-selected {
+  background-color: #81d4fa !important;
+}
