@@ -128,27 +128,44 @@ class BudgetRepository:
             return make_response(str(e))
 
 
+    def on_transaction_update_update_src(self, transaction):
+        try:
+
+            dt_object = datetime.strptime(transaction['date'], "%Y-%m-%dT%H:%M:%S.%fZ")
+            table_name = ""
+            if transaction['type'] == 'expense':
+                table_name = "budgets.expenses"
+            elif transaction['type'] == 'income':
+                table_name = "budgets.income"
+            elif transaction['type'] == 'debt':
+                table_name = "budgets.debt"
+            else:
+                table_name = "budgets.savings"
+
+            query = f"SELECT id, amount FROM {table_name} WHERE category_id = {transaction['category']['id']} AND EXTRACT(MONTH FROM date) = {dt_object.month}  AND EXTRACT(YEAR FROM date) = {dt_object.year}"
+            self.cur.execute(query)
+            row = self.cur.fetchone()
+
+            # Check if a row with the same month and year for a category already exists
+            if row:
+                expense_id, existing_amount = row
+                update_sql = f"UPDATE {table_name} SET amount = amount + %s WHERE id=%s"
+                self.cur.execute(update_sql, (transaction['amount'], expense_id))
+            else:
+                insert_sql = f"INSERT INTO {table_name} (category_id, amount, date) VALUES (%s, %s, %s)"
+                self.cur.execute(insert_sql, (transaction['category']['id'], transaction['amount'], transaction['date']))
+
+        except psycopg2.Error as e:
+            return make_response(str(e))
+
+
     def save_transaction(self, transaction):
         try:
             query = f"INSERT INTO budgets.transactions(user_id, date, type, category, amount, details, created_at) values ({transaction['paidby']},'{transaction['date']}','{transaction['type']}',{transaction['category']['id']}, {transaction['amount']},'{transaction['details']}','{transaction['created_date']}')"
 
             self.cur.execute(query)
 
-            dt_object = datetime.strptime(transaction['date'], "%Y-%m-%dT%H:%M:%S.%fZ")
-
-            query = f"SELECT id, amount FROM budgets.expenses WHERE category_id = {transaction['category']['id']} AND EXTRACT(MONTH FROM date) = {dt_object.month}  AND EXTRACT(YEAR FROM date) = {dt_object.year}"
-
-            self.cur.execute(query)
-            row = self.cur.fetchone()
-
-            if row:
-                expense_id, existing_amount = row
-                update_sql = "UPDATE budgets.expenses SET amount = amount + %s WHERE id=%s"
-                self.cur.execute(update_sql, (transaction['amount'], expense_id))
-            else:
-                insert_sql = """INSERT INTO budgets.expenses (category_id, amount, date)
-                                VALUES (%s, %s, %s)"""
-                self.cur.execute(insert_sql, (transaction['category']['id'], transaction['amount'], transaction['date']))
+            self.on_transaction_update_update_src(transaction)
 
             # Close the cursor and connection
             self.cur.close()
