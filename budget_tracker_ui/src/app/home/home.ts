@@ -14,8 +14,11 @@ import { HomeService } from './home-service';
   styleUrl: './home.css',
 })
 export class Home implements OnInit {
+  today = new Date();
+  endOfLastMonth = new Date(this.today.getFullYear(), this.today.getMonth(), 0);
+
   range = new FormGroup({
-    start: new FormControl<Date | null>(new Date()),
+    start: new FormControl<Date | null>(this.endOfLastMonth),
     end: new FormControl<Date | null>(new Date()),
   });
 
@@ -59,8 +62,8 @@ export class Home implements OnInit {
         },
       ],
 
-      width: 1100, // Fixed width in pixels
-      height: 380,
+      width: 1500, // Fixed width in pixels
+      height: 360,
     };
 
     this.incomeChartOptions = {
@@ -75,8 +78,8 @@ export class Home implements OnInit {
           angleKey: 'amount',
         },
       ],
-      width: 373,
-      height: 360,
+      width: 450,
+      height: 350,
     };
 
     this.savingsChartOptions = {
@@ -92,8 +95,8 @@ export class Home implements OnInit {
           angleKey: 'amount',
         },
       ],
-      width: 373, // Fixed width in pixels
-      height: 360,
+      width: 450, // Fixed width in pixels
+      height: 350,
     };
 
     this.expenseChartOptions = {
@@ -108,8 +111,8 @@ export class Home implements OnInit {
           angleKey: 'amount',
         },
       ],
-      width: 373, // Fixed width in pixels
-      height: 360,
+      width: 450, // Fixed width in pixels
+      height: 350,
     };
   }
 
