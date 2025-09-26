@@ -4,6 +4,9 @@ import calendar
 import pandas as pd
 from datetime import datetime
 
+from Utils.HelperUtil import HelperUtil
+
+
 class BudgetRepository:
     def __init__(self, cur = None, conn = None):
         self.cur = cur
@@ -126,6 +129,55 @@ class BudgetRepository:
 
         except psycopg2.Error as e:
             return make_response(str(e))
+
+
+    def summary_chart(self, startDate, endDate):
+        try:
+            help_util = HelperUtil()
+
+            start_month = datetime.strptime(startDate, "%Y-%m-%dT%H:%M:%S.%fZ").month
+            start_year = datetime.strptime(startDate, "%Y-%m-%dT%H:%M:%S.%fZ").year
+            end_month = datetime.strptime(endDate, "%Y-%m-%dT%H:%M:%S.%fZ").month
+            end_year = datetime.strptime(endDate, "%Y-%m-%dT%H:%M:%S.%fZ").year
+
+
+            start = datetime(start_year, start_month, 1)
+            end = help_util.get_last_day_of_month(end_year, end_month)
+
+            months = help_util.month_iter(start, end)
+
+            income_data = self.fetch_data_as_dict("budgets.income", start, end)
+            expense_data = self.fetch_data_as_dict("budgets.expenses", start, end)
+            debt_data = self.fetch_data_as_dict("budgets.debt", start, end)
+            savings_data = self.fetch_data_as_dict("budgets.savings", start, end)
+
+            result = []
+            for mon_str, year, month in months:
+                key = (year, month)
+                result.append({
+                    "month": mon_str+"-"+str(year),
+                    "income": float(income_data.get(key, 0)),
+                    "expense": float(expense_data.get(key, 0)),
+                    "debt": float(debt_data.get(key, 0)),
+                    "savings": float(savings_data.get(key, 0))
+                })
+
+            return result
+
+        except psycopg2.Error as e:
+            return make_response(str(e))
+
+
+    def summary_chart_query_generator(self, table_name):
+        query = f"SELECT EXTRACT(YEAR FROM date) as year, EXTRACT(MONTH FROM date) as month, SUM(amount) as total FROM {table_name} WHERE date BETWEEN %s AND %s GROUP BY year, month"
+
+        return query
+
+
+    def fetch_data_as_dict(self, table_name, start, end):
+        query = self.summary_chart_query_generator(table_name)
+        self.cur.execute(query, (start, end))
+        return {(int(row[0]), int(row[1])): row[2] for row in self.cur.fetchall()}
 
 
     def update_src_data(self, data):
