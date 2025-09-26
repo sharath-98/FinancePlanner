@@ -20,9 +20,9 @@ export class Home implements OnInit {
   });
 
   public summaryChartOptions: AgChartOptions;
-  public expenseChartOptions: AgChartOptions;
-  public debtChartOptions: AgChartOptions;
+  public incomeChartOptions: AgChartOptions;
   public savingsChartOptions: AgChartOptions;
+  public expenseChartOptions: AgChartOptions;
 
   summaryChartData: any;
 
@@ -63,57 +63,58 @@ export class Home implements OnInit {
       height: 380,
     };
 
-    this.expenseChartOptions = {
-      // Data: Data to be displayed in the chart
-      data: [
-        { month: 'Jan', avgTemp: 2.3, iceCreamSales: 162000 },
-        { month: 'Mar', avgTemp: 6.3, iceCreamSales: 302000 },
-        { month: 'May', avgTemp: 16.2, iceCreamSales: 800000 },
-        { month: 'Jul', avgTemp: 22.8, iceCreamSales: 1254000 },
-        { month: 'Sep', avgTemp: 14.5, iceCreamSales: 950000 },
-        { month: 'Nov', avgTemp: 8.9, iceCreamSales: 200000 },
+    this.incomeChartOptions = {
+      title: {
+        text: 'Income (Tracked)',
+      },
+      data: [],
+      series: [
+        {
+          type: 'donut',
+          calloutLabelKey: 'category',
+          angleKey: 'amount',
+        },
       ],
-      // Series: Defines which chart type and data to use
-      series: [{ type: 'bar', xKey: 'month', yKey: 'iceCreamSales' }],
-      width: 373, // Fixed width in pixels
-      height: 360,
-    };
-
-    this.debtChartOptions = {
-      // Data: Data to be displayed in the chart
-      data: [
-        { month: 'Jan', avgTemp: 2.3, iceCreamSales: 162000 },
-        { month: 'Mar', avgTemp: 6.3, iceCreamSales: 302000 },
-        { month: 'May', avgTemp: 16.2, iceCreamSales: 800000 },
-        { month: 'Jul', avgTemp: 22.8, iceCreamSales: 1253600 },
-        { month: 'Sep', avgTemp: 14.5, iceCreamSales: 950000 },
-        { month: 'Nov', avgTemp: 8.9, iceCreamSales: 200000 },
-      ],
-      // Series: Defines which chart type and data to use
-      series: [{ type: 'bar', xKey: 'month', yKey: 'iceCreamSales' }],
-      width: 373, // Fixed width in pixels
+      width: 373,
       height: 360,
     };
 
     this.savingsChartOptions = {
-      // Data: Data to be displayed in the chart
-      data: [
-        { month: 'Jan', avgTemp: 2.3, iceCreamSales: 162000 },
-        { month: 'Mar', avgTemp: 6.3, iceCreamSales: 302000 },
-        { month: 'May', avgTemp: 16.2, iceCreamSales: 800000 },
-        { month: 'Jul', avgTemp: 22.8, iceCreamSales: 1254000 },
-        { month: 'Sep', avgTemp: 14.5, iceCreamSales: 950000 },
-        { month: 'Nov', avgTemp: 8.9, iceCreamSales: 200000 },
-      ],
       // Series: Defines which chart type and data to use
-      series: [{ type: 'bar', xKey: 'month', yKey: 'iceCreamSales' }],
+      title: {
+        text: 'Savings (Tracked)',
+      },
+      data: [],
+      series: [
+        {
+          type: 'donut',
+          calloutLabelKey: 'category',
+          angleKey: 'amount',
+        },
+      ],
+      width: 373, // Fixed width in pixels
+      height: 360,
+    };
+
+    this.expenseChartOptions = {
+      title: {
+        text: 'Expenses (Tracked)',
+      },
+      data: [],
+      series: [
+        {
+          type: 'donut',
+          calloutLabelKey: 'category',
+          angleKey: 'amount',
+        },
+      ],
       width: 373, // Fixed width in pixels
       height: 360,
     };
   }
 
   ngOnInit(): void {
-    this.onDatePickerClosed()
+    this.onDatePickerClosed();
   }
 
   onDatePickerClosed() {
@@ -121,13 +122,29 @@ export class Home implements OnInit {
       start: this.range.value.start?.toISOString(),
       end: this.range.value.end?.toISOString(),
     };
-    console.log(payload)
+
     this.homeSrv.get_summary_chart(payload).subscribe((data) => {
       this.summaryChartOptions = {
         ...this.summaryChartOptions,
         data: data,
       };
     });
-  }
 
+    this.homeSrv.get_sub_chart(payload).subscribe((data) => {
+      this.incomeChartOptions = {
+        ...this.incomeChartOptions,
+        data: data['income'],
+      };
+
+      this.savingsChartOptions = {
+        ...this.savingsChartOptions,
+        data: data['savings'],
+      };
+
+      this.expenseChartOptions = {
+        ...this.expenseChartOptions,
+        data: data['expense'],
+      };
+    });
+  }
 }

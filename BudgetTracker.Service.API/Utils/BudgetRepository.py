@@ -173,11 +173,51 @@ class BudgetRepository:
 
         return query
 
+    def subchart_query_generator(self, table_name):
+        query = f"SELECT c.name as category, SUM(amount) as amount FROM {table_name} i JOIN budgets.categories c ON i.category_id = c.id WHERE date BETWEEN %s AND %s GROUP BY i.category_id, c.name"
+
+        return query
+
 
     def fetch_data_as_dict(self, table_name, start, end):
         query = self.summary_chart_query_generator(table_name)
         self.cur.execute(query, (start, end))
         return {(int(row[0]), int(row[1])): row[2] for row in self.cur.fetchall()}
+
+
+    def fetch_sub_chart_data(self, table_name, start, end):
+        query = self.subchart_query_generator(table_name)
+        self.cur.execute(query, (start, end))
+        return self.cur.fetchall()
+
+
+    def sub_charts(self, startDate, endDate):
+        help_util = HelperUtil()
+
+        start_month = datetime.strptime(startDate, "%Y-%m-%dT%H:%M:%S.%fZ").month
+        start_year = datetime.strptime(startDate, "%Y-%m-%dT%H:%M:%S.%fZ").year
+        end_month = datetime.strptime(endDate, "%Y-%m-%dT%H:%M:%S.%fZ").month
+        end_year = datetime.strptime(endDate, "%Y-%m-%dT%H:%M:%S.%fZ").year
+
+        start = datetime(start_year, start_month, 1)
+        end = help_util.get_last_day_of_month(end_year, end_month)
+
+        months = help_util.month_iter(start, end)
+
+        income_data = self.fetch_sub_chart_data("budgets.income", start, end)
+        expense_data = self.fetch_sub_chart_data("budgets.expenses", start, end)
+        debt_data = self.fetch_sub_chart_data("budgets.debt", start, end)
+        savings_data = self.fetch_sub_chart_data("budgets.savings", start, end)
+
+        result = {
+            'income': [{"category": row[0], "amount": float(row[1])} for row in income_data],
+            'expense': [{"category": row[0], "amount": float(row[1])} for row in expense_data],
+            'debt': [{"category": row[0], "amount": float(row[1])} for row in debt_data],
+            'savings': [{"category": row[0], "amount": float(row[1])} for row in savings_data],
+        }
+
+        return result
+
 
 
     def update_src_data(self, data):
