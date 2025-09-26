@@ -17,6 +17,60 @@ with open('appsettings.json') as config_file:
 def get_handshake():
     return "Test Successful"
 
+
+@app.route('/updateSrc', methods=['POST'])
+def handle_update_src_data():
+    data = request.get_json()['data']
+    db_conn = DBConnector()
+    db_config = app.config['db_conn']
+    db_conn.get_connection(db_config)
+    cur = db_conn.get_cursor()
+
+    _budgetRepo = BudgetRepository(cur, db_conn)
+    res = _budgetRepo.update_src_data(data)
+    if res is None:
+        return make_response(jsonify({}))
+
+    return jsonify({"msg": "success"})
+
+
+@app.route('/subCharts', methods=['POST'])
+def sub_charts():
+    startDate = request.get_json()['start']
+    endDate = request.get_json()['end']
+
+    db_conn = DBConnector()
+    db_config = app.config['db_conn']
+    db_conn.get_connection(db_config)
+    cur = db_conn.get_cursor()
+
+    _budgetRepo = BudgetRepository(cur, db_conn)
+    res = _budgetRepo.sub_charts(startDate, endDate)
+
+    if res is None:
+        return make_response(jsonify({}))
+
+    return jsonify(res)
+
+@app.route('/summaryChart', methods=['POST'])
+def summary_chart():
+    startDate = request.get_json()['start']
+    endDate = request.get_json()['end']
+
+    db_conn = DBConnector()
+    db_config = app.config['db_conn']
+    db_conn.get_connection(db_config)
+    cur = db_conn.get_cursor()
+
+    _budgetRepo = BudgetRepository(cur, db_conn)
+    res = _budgetRepo.summary_chart(startDate, endDate)
+
+    if res is None:
+        return make_response(jsonify({}))
+
+    return jsonify(res)
+
+
 @app.route('/saveTransaction', methods=['POST'])
 def save_transaction():
     transaction = request.get_json()['transaction']

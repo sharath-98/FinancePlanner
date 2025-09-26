@@ -150,11 +150,12 @@ export class BudgetPlanner implements OnInit {
   getUnallocated() {
     let result: any = {};
     for (const key in this.grandTotalRow) {
-      result[key] =
+      result[key] = (
         this.grandTotalRow[key] -
         (this.grandExpenseTotalRow[key] +
           this.grandSavingsTotalRow[key] +
-          this.grandDebtTotalRow[key]);
+          this.grandDebtTotalRow[key])
+      ).toFixed(2);
     }
     this.grandAllocatedRow = [result];
     this.allocatedRowData = [result];
@@ -164,11 +165,13 @@ export class BudgetPlanner implements OnInit {
   onCellValueChanged(event: any, category: any) {
     const colId = event.colDef.field;
     let payload = {
-      month: colId,
-      year: this.selectedYear,
-      type: category,
-      amount: event.data[colId],
-      category: event.data[category],
+      data: {
+        month: colId,
+        year: this.selectedYear,
+        type: category,
+        amount: event.data[colId],
+        category: event.data[category],
+      }
     };
 
     if (category == 'Income') {
