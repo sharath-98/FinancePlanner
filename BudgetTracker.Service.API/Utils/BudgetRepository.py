@@ -367,20 +367,16 @@ class BudgetRepository:
             self.cur.execute(f"select * from budgets.subcategory where category_id = {category_id}")
             rows = self.cur.fetchall()
 
-            data = [
-                {"id": row[0], "category_id": row[1], "merchant": row[2]}
-                for row in rows
-            ]
+            data = []
+            for row in rows:
+                data.append(row[2])
 
 
             # Close the cursor and connection
             self.cur.close()
 
-            df_final = pd.DataFrame(data)
-            df_final = df_final.fillna(0)
-
-            if len(df_final) > 0:
-                return df_final
+            if len(data) > 0:
+                return data
             else:
                 return None
 

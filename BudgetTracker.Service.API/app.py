@@ -49,7 +49,7 @@ def sub_category():
     if res is None:
         return make_response(jsonify({}))
 
-    return jsonify(res.to_dict(orient='records'))
+    return jsonify(res)
 
 
 @app.route('/savesubcategory', methods=['POST'])
