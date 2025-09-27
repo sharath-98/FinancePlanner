@@ -11,6 +11,12 @@ CREATE TABLE budgets.categories (
     name VARCHAR(100) NOT NULL
 );
 
+CREATE TABLE budgets.subcategory (
+    id SERIAL PRIMARY KEY,
+    category_id INTEGER REFERENCES budgets.categories(id),
+    name VARCHAR(255) NOT NULL
+);
+
 CREATE TABLE budgets.income (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES budgets.users(id),
