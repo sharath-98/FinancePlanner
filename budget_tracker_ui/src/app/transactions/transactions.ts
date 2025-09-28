@@ -80,7 +80,7 @@ export class Transactions {
           option.toLowerCase().includes((value || '').toLowerCase())
         );
       } else {
-        this.isNewMerchantEntry = true
+        this.isNewMerchantEntry = true;
       }
     });
 
@@ -88,8 +88,8 @@ export class Transactions {
   }
 
   OnCategorySelection() {
-    this.merchants = []
-    this.filteredMerchants = []
+    this.merchants = [];
+    this.filteredMerchants = [];
     this.isNewMerchantEntry = false;
 
     let payload = {
@@ -169,6 +169,7 @@ export class Transactions {
     { field: 'date', headerName: 'Date' },
     { field: 'type', headerName: 'Type' },
     { field: 'category', headerName: 'Category' },
+    { field: 'merchant', headerName: 'Merchant' },
     { field: 'amount', headerName: 'Amount' },
     { field: 'details', headerName: 'Details' },
   ];
