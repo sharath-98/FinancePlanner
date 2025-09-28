@@ -16,21 +16,8 @@ import { TransactionModule } from './transactions/transaction-module';
 import { SpinnerService } from './services/spinner-service';
 import { LoadingInterceptor } from './interceptor/loading.interceptor';
 import { AgChartsModule } from 'ag-charts-angular';
-import * as _moment from 'moment';
-import { MatNativeDateModule } from '@angular/material/core';
 import { MatMomentDateModule, MomentDateAdapter } from '@angular/material-moment-adapter';
-import { DateAdapter, MAT_DATE_FORMATS, MAT_DATE_LOCALE } from '@angular/material/core';
-const moment = _moment;
 
-export const MY_FORMATS = {
-  parse: { dateInput: 'MM/YYYY' },
-  display: {
-    dateInput: 'MM/YYYY',
-    monthYearLabel: 'MMM YYYY',
-    dateA11yLabel: 'LL',
-    monthYearA11yLabel: 'MMMM YYYY',
-  },
-};
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -48,7 +35,6 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     TransactionModule,
     FontAwesomeModule,
     ToastrModule.forRoot(),
-    MatMomentDateModule,
   ],
   providers: [
     provideBrowserGlobalErrorListeners(),
@@ -59,9 +45,6 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       useClass: LoadingInterceptor,
       multi: true,
     },
-
-    { provide: DateAdapter, useClass: MomentDateAdapter, deps: [MAT_DATE_LOCALE] },
-    { provide: MAT_DATE_FORMATS, useValue: MY_FORMATS },
   ],
   exports: [MaterialModule, AgChartsModule],
   bootstrap: [App],

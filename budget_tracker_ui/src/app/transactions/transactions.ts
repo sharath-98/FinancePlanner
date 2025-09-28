@@ -33,6 +33,10 @@ export class Transactions {
   ];
   transactionForm!: FormGroup;
   filteredCategories!: Observable<Category[]>;
+  filteredMerchants: any;
+
+  merchants: any;
+  isNewMerchantEntry!: boolean;
 
   constructor(
     private http: HttpClient,
@@ -61,7 +65,6 @@ export class Transactions {
     this.transSrv.get_categories().subscribe((data) => {
       this.categories = data['categories'];
       this.types = data['types'];
-      console.log('Cetrgories', data);
     });
 
     this.filteredCategories = this.transactionForm.get('category')!.valueChanges.pipe(
@@ -69,7 +72,41 @@ export class Transactions {
       map((value) => (typeof value === 'string' ? value : value?.name)),
       map((name) => (name ? this._filterCategories(name) : this.categories.slice()))
     );
+
+    this.transactionForm.get('merchant')?.valueChanges.subscribe((value) => {
+      this.isNewMerchantEntry = value && !this.merchants.includes(value);
+      this.filteredMerchants = this.merchants.filter((option: any) =>
+        option.toLowerCase().includes((value || '').toLowerCase())
+      );
+    });
+
     this.getInitialGrids();
+  }
+
+  OnCategorySelection() {
+    let payload = {
+      category_id: this.transactionForm.value.category.id,
+    };
+
+    this.transSrv.get_subcategory(payload).subscribe((data) => {
+      this.merchants = data;
+    });
+  }
+
+  addNewMerchant() {
+    let payload = {
+      category_id: this.transactionForm.value.category.id,
+      merchant: this.transactionForm.value.merchant,
+    };
+
+    this.transSrv.save_subcategory(payload).subscribe(
+      (data) => {
+        this.toastr.success('Added a new merchant.');
+      },
+      (error) => {
+        this.toastr.error('Error is adding a new merchant');
+      }
+    );
   }
 
   onYearChange(event: any) {
@@ -82,24 +119,36 @@ export class Transactions {
     return this.categories.filter((option: any) => option.name.toLowerCase().includes(filterValue));
   }
 
+  private _filterMerchants(name: string): any {
+    const filterValue = name.toLowerCase();
+    return this.categories.filter((option: any) => option.toLowerCase().includes(filterValue));
+  }
+
   displayCategory(category: any): string {
     return category && category.name ? category.name : '';
+  }
+
+  displayMerchants(merchant: any): string {
+    return merchant ? merchant : '';
   }
 
   onSubmit() {
     // handle form submission
     if (this.transactionForm.valid) {
       let payload = {
-        "transaction": this.transactionForm.value,
+        transaction: this.transactionForm.value,
       };
       payload['transaction']['date'] = new Date(payload['transaction']['date']).toISOString();
-      console.log(payload)
-      this.transSrv.save_expense(payload).subscribe(data => {
-        this.toastr.success("Transaction saved")
-        this.getInitialGrids()
-      }, error => {
-        this.toastr.success('Error in saving the transaction.');
-      })
+      console.log(payload);
+      this.transSrv.save_expense(payload).subscribe(
+        (data) => {
+          this.toastr.success('Transaction saved');
+          this.getInitialGrids();
+        },
+        (error) => {
+          this.toastr.success('Error in saving the transaction.');
+        }
+      );
     }
   }
 
@@ -138,11 +187,11 @@ export class Transactions {
   };
 
   getInitialGrids() {
-    this.expenseRowData = []
-    this.transSrv.get_yearly_transactions({"year": this.selectedYear}).subscribe(data => {
+    this.expenseRowData = [];
+    this.transSrv.get_yearly_transactions({ year: this.selectedYear }).subscribe((data) => {
       this.expenseRowData = data;
       this.gridApi.refreshCells({ force: true });
-    })
+    });
   }
 
   onCellValueChanged(event: any) {}

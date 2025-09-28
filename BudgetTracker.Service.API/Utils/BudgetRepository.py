@@ -305,6 +305,34 @@ class BudgetRepository:
             return make_response(str(e))
 
 
+    def save_subcategory(self, category_id, merchant):
+        try:
+            query = f"INSERT INTO budgets.subcategory(category_id, merchant) values ({category_id},'{merchant}')"
+            self.cur.execute(query)
+
+            self.cur.execute(f"select * from budgets.subcategory where category_id = {category_id}")
+            rows = self.cur.fetchall()
+
+            data = [
+                {"id": row[0], "category_id": row[1], "merchant": row[2]}
+                for row in rows
+            ]
+
+            # Close the cursor and connection
+            self.cur.close()
+
+            df_final = pd.DataFrame(data)
+            df_final = df_final.fillna(0)
+
+            if len(df_final) > 0:
+                return df_final
+            else:
+                return None
+
+        except psycopg2.Error as e:
+            return make_response(str(e))
+
+
     def get_yearly_transaction(self, year):
         try:
             self.cur.execute(f"select * from budgets.get_yearly_transaction({year})")
@@ -327,6 +355,28 @@ class BudgetRepository:
 
             if len(df_final) > 0:
                 return df_final
+            else:
+                return None
+
+        except psycopg2.Error as e:
+            return make_response(str(e))
+
+
+    def get_subcategory(self, category_id):
+        try:
+            self.cur.execute(f"select * from budgets.subcategory where category_id = {category_id}")
+            rows = self.cur.fetchall()
+
+            data = []
+            for row in rows:
+                data.append(row[2])
+
+
+            # Close the cursor and connection
+            self.cur.close()
+
+            if len(data) > 0:
+                return data
             else:
                 return None
 

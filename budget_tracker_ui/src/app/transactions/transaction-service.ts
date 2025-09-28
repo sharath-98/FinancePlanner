@@ -18,6 +18,14 @@ export class TransactionService {
     return this.http.post<any>(this.BASE_URL + 'transactions', payload);
   }
 
+  get_subcategory(payload: any) {
+    return this.http.post<any>(this.BASE_URL + 'getsubcategory', payload);
+  }
+
+  save_subcategory(payload: any) {
+    return this.http.post<any>(this.BASE_URL + 'savesubcategory', payload);
+  }
+
   save_expense(payload: any): Observable<any> {
     return this.http.post<any>(this.BASE_URL + 'saveTransaction', payload);
   }

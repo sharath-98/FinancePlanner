@@ -34,6 +34,45 @@ def handle_update_src_data():
     return jsonify({"msg": "success"})
 
 
+@app.route('/getsubcategory', methods=['POST'])
+def sub_category():
+    category_id = request.get_json()['category_id']
+    db_conn = DBConnector()
+    db_conn = DBConnector()
+    db_config = app.config['db_conn']
+    db_conn.get_connection(db_config)
+    cur = db_conn.get_cursor()
+
+    _budgetRepo = BudgetRepository(cur, db_conn)
+    res = _budgetRepo.get_subcategory(category_id)
+
+    if res is None:
+        return make_response(jsonify({}))
+
+    return jsonify(res)
+
+
+@app.route('/savesubcategory', methods=['POST'])
+def save_sub_category():
+    category_id = request.get_json()['category_id']
+    merchant = request.get_json()['merchant']
+
+    db_conn = DBConnector()
+    db_config = app.config['db_conn']
+    db_conn.get_connection(db_config)
+    cur = db_conn.get_cursor()
+
+    _budgetRepo = BudgetRepository(cur, db_conn)
+    res = _budgetRepo.save_subcategory(category_id, merchant)
+
+    if res is None:
+        return make_response(jsonify({}))
+
+    return jsonify(res.to_dict(orient='records'))
+
+
+
+
 @app.route('/subCharts', methods=['POST'])
 def sub_charts():
     startDate = request.get_json()['start']
