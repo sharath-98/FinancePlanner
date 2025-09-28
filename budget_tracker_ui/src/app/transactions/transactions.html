@@ -21,7 +21,7 @@
                                 <mat-label>Merchant</mat-label>
                                 <input matInput type="text" formControlName="merchant" required [matAutocomplete]="autoMerchant">
                                 <span matSuffix mat-icon-button >
-                                    <mat-icon *ngIf="isNewMerchantEntry" (click)="addNewMerchant()">add_circle</mat-icon>
+                                    <mat-icon *ngIf="isNewMerchantEntry" (click)="addNewMerchant()" style="color: #3f51b5; background: white; margin-right: 5px; cursor:pointer">add_circle</mat-icon>
                                 </span>
                                 <mat-autocomplete #autoMerchant="matAutocomplete" [displayWith]="displayMerchants">
                                     <mat-option *ngFor="let option of filteredMerchants" [value]="option">
