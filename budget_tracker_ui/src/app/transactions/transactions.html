@@ -24,7 +24,7 @@
                                     <mat-icon>add_circle</mat-icon>
                                 </button>
                                 <mat-autocomplete #autoMerchant="matAutocomplete" [displayWith]="displayMerchants">
-                                    <mat-option *ngFor="let option of merchants" [value]="option">
+                                    <mat-option *ngFor="let option of filteredMerchants" [value]="option">
                                         {{ option }}
                                     </mat-option>
                                 </mat-autocomplete>

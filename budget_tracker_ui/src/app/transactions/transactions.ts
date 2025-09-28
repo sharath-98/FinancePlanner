@@ -33,6 +33,7 @@ export class Transactions {
   ];
   transactionForm!: FormGroup;
   filteredCategories!: Observable<Category[]>;
+  filteredMerchants: any;
 
   merchants: any;
   isNewMerchantEntry!: boolean;
@@ -74,6 +75,9 @@ export class Transactions {
 
     this.transactionForm.get('merchant')?.valueChanges.subscribe((value) => {
       this.isNewMerchantEntry = value && !this.merchants.includes(value);
+      this.filteredMerchants = this.merchants.filter((option: any) =>
+        option.toLowerCase().includes((value || '').toLowerCase())
+      );
     });
 
     this.getInitialGrids();
@@ -95,11 +99,14 @@ export class Transactions {
       merchant: this.transactionForm.value.merchant,
     };
 
-    this.transSrv.save_subcategory(payload).subscribe((data) => {
-      this.toastr.success("Added a new merchant.")
-    }, error => {
-      this.toastr.error("Error is adding a new merchant")
-    });
+    this.transSrv.save_subcategory(payload).subscribe(
+      (data) => {
+        this.toastr.success('Added a new merchant.');
+      },
+      (error) => {
+        this.toastr.error('Error is adding a new merchant');
+      }
+    );
   }
 
   onYearChange(event: any) {
