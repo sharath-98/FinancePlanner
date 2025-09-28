@@ -10,6 +10,10 @@ INSERT INTO budgets.categories (user_id, type, name) VALUES (1, 'income', 'Other
 commit;
 
 
+INSERT INTO budgets.categories (user_id, type, name) VALUES (1, 'saving', '401K - SCP');
+INSERT INTO budgets.categories (user_id, type, name) VALUES (1, 'saving', 'HSA - SCP');
+INSERT INTO budgets.categories (user_id, type, name) VALUES (2, 'saving', '401K – SJ');
+INSERT INTO budgets.categories (user_id, type, name) VALUES (2, 'saving', 'HSA – SJ');
 
 INSERT INTO budgets.categories (user_id, type, name) VALUES (1, 'saving', 'Stocks– SCP');
 INSERT INTO budgets.categories (user_id, type, name) VALUES (1, 'saving', 'Savings Acc – SCP');

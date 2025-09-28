@@ -57,7 +57,7 @@ CREATE TABLE budgets.transactions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES budgets.users(id),
     date DATE NOT NULL,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense', 'saving')),
+    type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense', 'saving', 'debt')),
     category VARCHAR(100) NOT NULL,
     amount NUMERIC(12,2) NOT NULL,
     merchant VARCHAR(255) NOT NULL,

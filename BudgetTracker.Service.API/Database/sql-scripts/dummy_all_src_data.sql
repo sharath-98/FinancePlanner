@@ -43,5 +43,8 @@ INSERT INTO budgets.income (user_id, category_id, amount, date) values (2, 6, 0,
 INSERT INTO budgets.income (user_id, category_id, amount, date) values (2, 7, 0, '1-Jan-2025');
 INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 8, 0, '1-Jan-2025');
 INSERT INTO budgets.income (user_id, category_id, amount, date) values (1, 9, 0, '1-Jan-2025');
+
+
+
 commit;
 

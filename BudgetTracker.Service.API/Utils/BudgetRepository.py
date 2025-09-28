@@ -292,6 +292,8 @@ class BudgetRepository:
         try:
             query = f"INSERT INTO budgets.transactions(user_id, date, type, category, amount, details, created_at, merchant) values ({transaction['paidby']},'{transaction['date']}','{transaction['type']}',{transaction['category']['id']}, {transaction['amount']},'{transaction['details']}','{transaction['created_date']}', '{transaction['merchant']}')"
 
+            print(query)
+
             self.cur.execute(query)
 
             self.on_transaction_update_update_src(transaction)
