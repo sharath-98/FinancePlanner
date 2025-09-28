@@ -74,16 +74,24 @@ export class Transactions {
     );
 
     this.transactionForm.get('merchant')?.valueChanges.subscribe((value) => {
-      this.isNewMerchantEntry = value && !this.merchants.includes(value);
-      this.filteredMerchants = this.merchants.filter((option: any) =>
-        option.toLowerCase().includes((value || '').toLowerCase())
-      );
+      if (this.merchants.length > 0) {
+        this.isNewMerchantEntry = value && !this.merchants.includes(value);
+        this.filteredMerchants = this.merchants.filter((option: any) =>
+          option.toLowerCase().includes((value || '').toLowerCase())
+        );
+      } else {
+        this.isNewMerchantEntry = true
+      }
     });
 
     this.getInitialGrids();
   }
 
   OnCategorySelection() {
+    this.merchants = []
+    this.filteredMerchants = []
+    this.isNewMerchantEntry = false;
+
     let payload = {
       category_id: this.transactionForm.value.category.id,
     };

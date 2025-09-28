@@ -60,6 +60,7 @@ CREATE TABLE budgets.transactions (
     type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense', 'saving')),
     category VARCHAR(100) NOT NULL,
     amount NUMERIC(12,2) NOT NULL,
+    merchant VARCHAR(255) NOT NULL,
     details VARCHAR(255),
     balance NUMERIC(12,2),
     effective_date DATE,
