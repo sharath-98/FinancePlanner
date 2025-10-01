@@ -27,10 +27,7 @@ export class Transactions {
   categories = [];
   types = [];
   currencies = ['USD'];
-  users = [
-    { id: 1, name: 'Sharath' },
-    { id: 2, name: 'Soundarya' },
-  ];
+  users: any;
   transactionForm!: FormGroup;
   filteredCategories!: Observable<Category[]>;
   filteredMerchants: any;
@@ -62,6 +59,11 @@ export class Transactions {
     for (let y = currentYear; y >= currentYear - 10; y--) {
       this.years.push(y);
     }
+
+    this.transSrv.get_users().subscribe(data => {
+      this.users = data
+    })
+
     this.transSrv.get_categories().subscribe((data) => {
       this.categories = data['categories'];
       this.types = data['types'];

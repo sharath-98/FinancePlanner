@@ -14,6 +14,10 @@ export class TransactionService {
     return this.http.get<any>(this.BASE_URL + 'categories');
   }
 
+  get_users(): Observable<any> {
+    return this.http.get<any>(this.BASE_URL + 'users');
+  }
+
   get_yearly_transactions(payload: any): Observable<any> {
     return this.http.post<any>(this.BASE_URL + 'transactions', payload);
   }

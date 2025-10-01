@@ -219,6 +219,28 @@ class BudgetRepository:
         return result
 
 
+    def get_users(self):
+        try:
+            self.cur.execute(f"select * from budgets.users")
+            rows = self.cur.fetchall()
+
+            data = [
+                {"id": row[0], "name": row[1]}
+                for row in rows
+            ]
+
+            # Close the cursor and connection
+            self.cur.close()
+
+            df_final = pd.DataFrame(data)
+
+            if len(df_final) > 0:
+                return df_final
+            else:
+                return None
+
+        except psycopg2.Error as e:
+            return make_response(str(e))
 
     def update_src_data(self, data):
         try:

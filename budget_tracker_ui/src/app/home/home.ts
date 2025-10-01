@@ -15,7 +15,7 @@ import { HomeService } from './home-service';
 })
 export class Home implements OnInit {
   today = new Date();
-  endOfLastMonth = new Date(this.today.getFullYear(), this.today.getMonth(), 0);
+  endOfLastMonth = new Date(this.today.getFullYear(), 0, 1);
 
   range = new FormGroup({
     start: new FormControl<Date | null>(this.endOfLastMonth),
@@ -37,25 +37,25 @@ export class Home implements OnInit {
       data: this.summaryChartData,
       series: [
         {
-          type: 'line',
+          type: 'bar',
           xKey: 'month',
           yKey: 'income',
           yName: 'Income',
         },
         {
-          type: 'line',
+          type: 'bar',
           xKey: 'month',
           yKey: 'expense',
           yName: 'Expense',
         },
         {
-          type: 'line',
+          type: 'bar',
           xKey: 'month',
           yKey: 'debt',
           yName: 'Debt',
         },
         {
-          type: 'line',
+          type: 'bar',
           xKey: 'month',
           yKey: 'savings',
           yName: 'Savings',

@@ -184,6 +184,22 @@ def get_income():
     response = res.to_dict(orient='records')
     return jsonify(response)
 
+@app.route('/users', methods=['GET'])
+def get_users():
+    db_conn = DBConnector()
+    db_config = app.config['db_conn']
+    db_conn.get_connection(db_config)
+    cur = db_conn.get_cursor()
+
+    _budgetRepo = BudgetRepository(cur)
+    res = _budgetRepo.get_users()
+
+    if res is None:
+        return make_response(jsonify([]))
+
+    return jsonify(res.to_dict(orient='records'))
+
+
 @app.route('/expenses', methods=['POST'])
 def get_expenses():
     year = request.get_json()['year']
