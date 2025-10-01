@@ -35,6 +35,7 @@ INSERT INTO budgets.categories (type, name) VALUES ('debt', 'Car');
 INSERT INTO budgets.categories (type, name) VALUES ('debt', 'Education');
 commit;
 
+INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Cards');
 INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Housing');
 INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Utilities');
 INSERT INTO budgets.categories (type, name) VALUES ('expense', 'Mobile');
