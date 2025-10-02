@@ -20,4 +20,9 @@ Or, if you don't want/need a background service you can just run:
   LC_ALL="C" /opt/homebrew/opt/postgresql@15/bin/postgres -D /opt/homebrew/var/postgresql@15
 
 
+BKP steps:
+----------
+pg_dump -U sharathchanderp -h localhost -p 5432 -F c -b -v -f "/Users/sharathchanderp/Documents/Projects/BudgetTracker/DB-BKPS/budget_tracker-09_28_2025.backup" budget_tracker
+
+pg_restore -f /Users/sharathchanderp/Documents/Projects/BudgetTracker/DB-BKPS/output.sql /Users/sharathchanderp/Documents/Projects/BudgetTracker/DB-BKPS/budget_tracker-09_28_2025.backup
 

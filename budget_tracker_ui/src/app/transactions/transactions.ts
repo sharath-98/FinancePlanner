@@ -27,10 +27,7 @@ export class Transactions {
   categories = [];
   types = [];
   currencies = ['USD'];
-  users = [
-    { id: 1, name: 'Sharath' },
-    { id: 2, name: 'Soundarya' },
-  ];
+  users: any;
   transactionForm!: FormGroup;
   filteredCategories!: Observable<Category[]>;
   filteredMerchants: any;
@@ -62,6 +59,11 @@ export class Transactions {
     for (let y = currentYear; y >= currentYear - 10; y--) {
       this.years.push(y);
     }
+
+    this.transSrv.get_users().subscribe(data => {
+      this.users = data
+    })
+
     this.transSrv.get_categories().subscribe((data) => {
       this.categories = data['categories'];
       this.types = data['types'];
@@ -74,16 +76,24 @@ export class Transactions {
     );
 
     this.transactionForm.get('merchant')?.valueChanges.subscribe((value) => {
-      this.isNewMerchantEntry = value && !this.merchants.includes(value);
-      this.filteredMerchants = this.merchants.filter((option: any) =>
-        option.toLowerCase().includes((value || '').toLowerCase())
-      );
+      if (this.merchants.length > 0) {
+        this.isNewMerchantEntry = value && !this.merchants.includes(value);
+        this.filteredMerchants = this.merchants.filter((option: any) =>
+          option.toLowerCase().includes((value || '').toLowerCase())
+        );
+      } else {
+        this.isNewMerchantEntry = true;
+      }
     });
 
     this.getInitialGrids();
   }
 
   OnCategorySelection() {
+    this.merchants = [];
+    this.filteredMerchants = [];
+    this.isNewMerchantEntry = false;
+
     let payload = {
       category_id: this.transactionForm.value.category.id,
     };
@@ -161,6 +171,7 @@ export class Transactions {
     { field: 'date', headerName: 'Date' },
     { field: 'type', headerName: 'Type' },
     { field: 'category', headerName: 'Category' },
+    { field: 'merchant', headerName: 'Merchant' },
     { field: 'amount', headerName: 'Amount' },
     { field: 'details', headerName: 'Details' },
   ];

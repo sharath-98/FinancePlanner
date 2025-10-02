@@ -15,7 +15,7 @@ import { HomeService } from './home-service';
 })
 export class Home implements OnInit {
   today = new Date();
-  endOfLastMonth = new Date(this.today.getFullYear(), this.today.getMonth(), 0);
+  endOfLastMonth = new Date(this.today.getFullYear(), 0, 1);
 
   range = new FormGroup({
     start: new FormControl<Date | null>(this.endOfLastMonth),
@@ -61,9 +61,28 @@ export class Home implements OnInit {
           yName: 'Savings',
         },
       ],
+      axes: [
+        {
+          type: "category",
+          position: "bottom",
+          title: {
+            text: "",
+          },
+        },
+        {
+          type: "number",
+          position: "left",
+          title: {
+            text: "Cost",
+          },
+          interval: {
+            step: 5
+          }
+        },
+      ],
 
       width: 1500, // Fixed width in pixels
-      height: 360,
+      height: 600,
     };
 
     this.incomeChartOptions = {
@@ -78,8 +97,8 @@ export class Home implements OnInit {
           angleKey: 'amount',
         },
       ],
-      width: 450,
-      height: 350,
+      width: 500,
+      height: 600,
     };
 
     this.savingsChartOptions = {
@@ -95,8 +114,8 @@ export class Home implements OnInit {
           angleKey: 'amount',
         },
       ],
-      width: 450, // Fixed width in pixels
-      height: 350,
+      width: 500, // Fixed width in pixels
+      height: 600,
     };
 
     this.expenseChartOptions = {
@@ -109,10 +128,11 @@ export class Home implements OnInit {
           type: 'donut',
           calloutLabelKey: 'category',
           angleKey: 'amount',
+          innerRadiusRatio: 0.5,
         },
       ],
-      width: 450, // Fixed width in pixels
-      height: 350,
+      width: 500, // Fixed width in pixels
+      height: 600,
     };
   }
 

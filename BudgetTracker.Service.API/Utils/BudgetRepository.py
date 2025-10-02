@@ -219,6 +219,28 @@ class BudgetRepository:
         return result
 
 
+    def get_users(self):
+        try:
+            self.cur.execute(f"select * from budgets.users")
+            rows = self.cur.fetchall()
+
+            data = [
+                {"id": row[0], "name": row[1]}
+                for row in rows
+            ]
+
+            # Close the cursor and connection
+            self.cur.close()
+
+            df_final = pd.DataFrame(data)
+
+            if len(df_final) > 0:
+                return df_final
+            else:
+                return None
+
+        except psycopg2.Error as e:
+            return make_response(str(e))
 
     def update_src_data(self, data):
         try:
@@ -290,7 +312,9 @@ class BudgetRepository:
 
     def save_transaction(self, transaction):
         try:
-            query = f"INSERT INTO budgets.transactions(user_id, date, type, category, amount, details, created_at) values ({transaction['paidby']},'{transaction['date']}','{transaction['type']}',{transaction['category']['id']}, {transaction['amount']},'{transaction['details']}','{transaction['created_date']}')"
+            query = f"INSERT INTO budgets.transactions(user_id, date, type, category, amount, details, created_at, merchant) values ({transaction['paidby']},'{transaction['date']}','{transaction['type']}',{transaction['category']['id']}, {transaction['amount']},'{transaction['details']}','{transaction['created_date']}', '{transaction['merchant']}')"
+
+            print(query)
 
             self.cur.execute(query)
 
@@ -339,7 +363,7 @@ class BudgetRepository:
             rows = self.cur.fetchall()
 
             data = [
-                {"id": row[0], "date": row[1], "type": row[2], "category": row[3], "amount": row[4], "details": row[5]}
+                {"id": row[0], "date": row[1], "type": row[2], "category": row[3], "amount": row[4], "details": row[5], "merchant": row[6]}
                 for row in rows
             ]
 
