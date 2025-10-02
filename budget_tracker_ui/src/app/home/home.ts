@@ -37,33 +37,52 @@ export class Home implements OnInit {
       data: this.summaryChartData,
       series: [
         {
-          type: 'bar',
+          type: 'line',
           xKey: 'month',
           yKey: 'income',
           yName: 'Income',
         },
         {
-          type: 'bar',
+          type: 'line',
           xKey: 'month',
           yKey: 'expense',
           yName: 'Expense',
         },
         {
-          type: 'bar',
+          type: 'line',
           xKey: 'month',
           yKey: 'debt',
           yName: 'Debt',
         },
         {
-          type: 'bar',
+          type: 'line',
           xKey: 'month',
           yKey: 'savings',
           yName: 'Savings',
         },
       ],
+      axes: [
+        {
+          type: "category",
+          position: "bottom",
+          title: {
+            text: "",
+          },
+        },
+        {
+          type: "number",
+          position: "left",
+          title: {
+            text: "Cost",
+          },
+          interval: {
+            step: 5
+          }
+        },
+      ],
 
       width: 1500, // Fixed width in pixels
-      height: 360,
+      height: 600,
     };
 
     this.incomeChartOptions = {
@@ -78,8 +97,8 @@ export class Home implements OnInit {
           angleKey: 'amount',
         },
       ],
-      width: 450,
-      height: 350,
+      width: 500,
+      height: 600,
     };
 
     this.savingsChartOptions = {
@@ -95,8 +114,8 @@ export class Home implements OnInit {
           angleKey: 'amount',
         },
       ],
-      width: 450, // Fixed width in pixels
-      height: 350,
+      width: 500, // Fixed width in pixels
+      height: 600,
     };
 
     this.expenseChartOptions = {
@@ -109,10 +128,11 @@ export class Home implements OnInit {
           type: 'donut',
           calloutLabelKey: 'category',
           angleKey: 'amount',
+          innerRadiusRatio: 0.5,
         },
       ],
-      width: 450, // Fixed width in pixels
-      height: 350,
+      width: 500, // Fixed width in pixels
+      height: 600,
     };
   }
 
