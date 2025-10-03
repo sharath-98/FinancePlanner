@@ -40,10 +40,10 @@ class BudgetRepository:
         df_final = pd.concat([df_pivot], ignore_index=True)
 
         # Row-wise total
-        df_final['Total'] = df_final.loc[:, 'Jan':].sum(axis=1)
+        df_final['Total'] = df_final.loc[:, 'Jan':].sum(axis=1).round(2)
 
         # Calculate column-wise total (sum for each month plus total)
-        total_row = df_final.loc[:, 'Jan':].sum(axis=0)
+        total_row = df_final.loc[:, 'Jan':].sum(axis=0).round(2)
         total_row[category] = 'Total'  # Label for total row
 
         # Append the total row to the DataFrame
@@ -172,6 +172,7 @@ class BudgetRepository:
         query = f"SELECT EXTRACT(YEAR FROM date) as year, EXTRACT(MONTH FROM date) as month, SUM(amount) as total FROM {table_name} WHERE date BETWEEN %s AND %s GROUP BY year, month"
 
         return query
+
 
     def subchart_query_generator(self, table_name):
         query = f"SELECT c.name as category, SUM(amount) as amount FROM {table_name} i JOIN budgets.categories c ON i.category_id = c.id WHERE date BETWEEN %s AND %s GROUP BY i.category_id, c.name"
