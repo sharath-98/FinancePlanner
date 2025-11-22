@@ -1,15 +1,22 @@
-<mat-toolbar color="primary">
-    <button class="example-icon" aria-label="Example icon-button with menu icon">
-        <mat-icon>attach_money</mat-icon>
-    </button>
-    <span class="logo">Finance</span>
-    <span style="margin-left: 20px; font-size: 14px; cursor: pointer" routerLink="home" routerLinkActive="active" >Dashboard</span>
-    <span style="margin-left: 20px; font-size: 14px; cursor: pointer" routerLink="planner" [routerLinkActive]="['active']" >Budget Planning</span>
-    <span style="margin-left: 20px; font-size: 14px; cursor: pointer" routerLink="transactions" [routerLinkActive]="['active']" >Transactions</span>
-    <span class="example-spacer"></span>
-    <button mat-icon-button class="example-icon">
-        <mat-icon>settings</mat-icon>
-    </button>
+<mat-toolbar color="primary" style="display: flex; width: 100%; justify-content: space-between">
+    <div>
+        <h2 class="logo">💰 Finance Management</h2>
+    </div>
+    <div>
+        <span style="margin-left: 20px; font-size: 15px; cursor: pointer" routerLink="home"
+            routerLinkActive="active">Dashboard</span>
+        <span style="margin-left: 20px; font-size: 15px; cursor: pointer" routerLink="planner"
+            [routerLinkActive]="['active']">Budget Planning</span>
+        <span style="margin-left: 20px; font-size: 15px; cursor: pointer" routerLink="transactions"
+            [routerLinkActive]="['active']">Transactions</span>
+        <span class="example-spacer"></span>
+    </div>
+    <div>
+        
+        <button mat-icon-button class="example-icon">
+            <mat-icon>settings</mat-icon>
+        </button>
+    </div>
 </mat-toolbar>
 <div *ngIf="loading$ | async" class="spinner-overlay">
     <mat-spinner></mat-spinner>
