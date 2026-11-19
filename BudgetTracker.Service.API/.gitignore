@@ -1,3 +1,7 @@
 .idea/
 __pycache__/
 .venv/
+
+auth_secret.key
+set_password.py
+appsettings.json
