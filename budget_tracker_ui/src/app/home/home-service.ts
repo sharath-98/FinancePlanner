@@ -16,6 +16,16 @@ export class HomeService {
     return this.http.post<any>(this.BASE_URL + 'summaryChart', payload);
   }
 
+  /** Savings rate, year over year, unusual spending and large purchases for a date range. */
+  get_insights(payload: any): Observable<any> {
+    return this.http.post<any>(this.BASE_URL + 'insights', payload);
+  }
+
+  /** One month against the month before, expense movers and a 12-month trend. */
+  get_month_over_month(payload: any): Observable<any> {
+    return this.http.post<any>(this.BASE_URL + 'monthOverMonth', payload);
+  }
+
   get_sub_chart(payload: any): Observable<any> {
     return this.http.post<any>(this.BASE_URL + 'subCharts', payload);
   }

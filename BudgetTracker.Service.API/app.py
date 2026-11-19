@@ -16,6 +16,7 @@ from Utils.AuthUtil import (
     verify_password,
 )
 from Utils.BudgetRepository import BudgetRepository
+from Utils.InsightsService import InsightsService
 from Utils.RequestUtil import (
     ApiError,
     json_body,
@@ -233,6 +234,30 @@ def summary_chart():
     end_date = parse_client_date(require_field(body, 'end'), 'end')
 
     return jsonify(get_repo().summary_chart(start_date, end_date))
+
+
+@app.route('/insights', methods=['POST'])
+def insights():
+    """New, read-only. Same {"start", "end"} as /summaryChart. Savings rate, year over year,
+    unusual spending and large purchases for the last month of that range."""
+    body = json_body()
+    start_date = parse_client_date(require_field(body, 'start'), 'start')
+    end_date = parse_client_date(require_field(body, 'end'), 'end')
+
+    return jsonify(InsightsService(get_repo().cur).build(start_date, end_date))
+
+
+@app.route('/monthOverMonth', methods=['POST'])
+def month_over_month():
+    """New, read-only. {"end": date, "complete_only": false}: the month containing `end`
+    against the month before, expense movers, and a 12-month trend."""
+    body = json_body()
+    end_date = parse_client_date(require_field(body, 'end'), 'end')
+    complete_only = body.get('complete_only', False)
+    if not isinstance(complete_only, bool):
+        raise ApiError("complete_only must be true or false.")
+
+    return jsonify(InsightsService(get_repo().cur).month_over_month(end_date, complete_only))
 
 
 @app.route('/saveTransaction', methods=['POST'])
