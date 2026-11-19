@@ -1,3 +1,4 @@
+/* FILE: src/app/app.css  (REPLACE existing file) */
 /* App shell — everything reads from the tokens in src/styles.scss */
 
 .skip-link {
@@ -174,4 +175,28 @@
     left: var(--space-2);
     right: var(--space-2);
   }
+}
+
+/* ---------- Signed-in user ---------- */
+.user-chip {
+  max-width: 120px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 720px) {
+  .user-chip {
+    display: none;
+  }
+}
+
+.app-main.no-header {
+  min-height: 100vh;
 }

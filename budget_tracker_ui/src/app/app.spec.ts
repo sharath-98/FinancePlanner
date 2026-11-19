@@ -1,4 +1,6 @@
 // FILE: src/app/app.spec.ts  (REPLACE existing file)
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { RouterModule } from '@angular/router';
 import { MaterialModule } from './material-module';
@@ -16,6 +18,7 @@ describe('App', () => {
     await TestBed.configureTestingModule({
       imports: [RouterModule.forRoot([]), MaterialModule],
       declarations: [App],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
   });
 

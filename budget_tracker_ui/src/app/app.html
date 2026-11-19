@@ -1,6 +1,7 @@
+<!-- FILE: src/app/app.html  (REPLACE existing file) -->
 <a class="skip-link" href="#main">Skip to content</a>
 
-<header class="app-header">
+<header class="app-header" *ngIf="!onLoginPage">
     <div class="header-inner">
         <a class="brand" routerLink="/home" aria-label="Ledger home">
             <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
@@ -36,6 +37,12 @@
             <button type="button" class="icon-btn" aria-label="Settings">
                 <mat-icon aria-hidden="true">settings</mat-icon>
             </button>
+            <ng-container *ngIf="user$ | async as user">
+                <span class="user-chip" [attr.title]="'Signed in as ' + user.username">{{ user.username }}</span>
+                <button type="button" class="icon-btn" (click)="signOut()" aria-label="Sign out">
+                    <mat-icon aria-hidden="true">logout</mat-icon>
+                </button>
+            </ng-container>
         </div>
     </div>
 </header>
@@ -44,6 +51,6 @@
     <mat-spinner diameter="40"></mat-spinner>
 </div>
 
-<main id="main" class="app-main">
+<main id="main" class="app-main" [class.no-header]="onLoginPage">
     <router-outlet></router-outlet>
 </main>

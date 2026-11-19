@@ -1,0 +1,46 @@
+/* FILE: src/app/budget-planner/confirm-replace-dialog.css  (NEW file) */
+.lead {
+    margin: 0 0 var(--space-4, 16px);
+    line-height: 1.5;
+}
+
+.facts {
+    margin: 0 0 var(--space-4, 16px);
+    display: grid;
+    gap: 8px;
+}
+
+.facts div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.facts dt {
+    color: var(--text-muted, inherit);
+    margin: 0;
+}
+
+.facts dd {
+    margin: 0;
+    font-weight: 600;
+}
+
+.is-negative {
+    color: var(--negative);
+}
+
+.note {
+    margin: 0;
+    font-size: 0.875rem;
+    opacity: 0.8;
+}
+
+mat-dialog-actions {
+    gap: 8px;
+    padding: 0 24px 20px;
+}

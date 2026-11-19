@@ -14,6 +14,8 @@ import { Observable, catchError, forkJoin, of } from 'rxjs';
 import { BudgetPlannerService } from './budget-planner-service';
 import { MatAccordion } from '@angular/material/expansion';
 import { ToastrService } from 'ngx-toastr';
+import { MatDialog } from '@angular/material/dialog';
+import { ConfirmReplaceDialog } from './confirm-replace-dialog';
 import { gridTheme, moneyCellClass, moneyFormatter } from '../shared/grid-theme';
 import { formatUsd } from '../shared/design-tokens';
 
@@ -288,7 +290,10 @@ export class BudgetPlanner implements OnInit {
 
   onCellValueChanged(event: any, category: any) {
     const colId = event.colDef.field;
-    let payload = {
+    if (event.newValue === event.oldValue) {
+      return;
+    }
+    const payload = {
       data: {
         month: colId,
         year: this.selectedYear,
@@ -298,6 +303,44 @@ export class BudgetPlanner implements OnInit {
       },
     };
 
+    // Ask the API what this month already holds. If transactions are logged there, confirm first.
+    const { amount, ...cell } = payload.data;
+    this.bdjSrv.get_month_activity({ data: cell }).subscribe({
+      next: (activity) => {
+        if (Number(activity?.transaction_count) > 0) {
+          this.dialog
+            .open(ConfirmReplaceDialog, {
+              width: '420px',
+              maxWidth: '92vw',
+              data: {
+                category: payload.data.category,
+                month: colId,
+                year: this.selectedYear,
+                transactionCount: Number(activity.transaction_count),
+                transactionTotal: Number(activity.transaction_total),
+                plannerAmount: Number(activity.planner_amount),
+                newAmount: Number(amount),
+              },
+            })
+            .afterClosed()
+            .subscribe((confirmed) => {
+              if (confirmed) {
+                this.applyEdit(payload, colId, category);
+              } else {
+                this.getInitialGrids(); // put the saved number back in the cell
+              }
+            });
+        } else {
+          this.applyEdit(payload, colId, category);
+        }
+      },
+      // If the check itself fails, do not block the edit; the save below reports any real problem.
+      error: () => this.applyEdit(payload, colId, category),
+    });
+  }
+
+  /** Updates the totals on screen and saves the typed amount. */
+  private applyEdit(payload: any, colId: string, category: any) {
     if (category == 'Income') {
       this.calculateColTotals(this.rowData, colId);
       this.calGrandTotal(this.rowData, 'Income');
@@ -317,8 +360,15 @@ export class BudgetPlanner implements OnInit {
     }
     this.getUnallocated();
 
-    this.bdjSrv.update_src_data(payload).subscribe((data) => {
-      this.getInitialGrids();
+    this.bdjSrv.update_src_data(payload).subscribe({
+      next: () => this.getInitialGrids(),
+      error: () => {
+        // The API answers with a real error when a save fails; show it and reload the saved numbers
+        this.toastr.error(
+          'Could not save that change. Check that the API is running and try again.',
+        );
+        this.getInitialGrids();
+      },
     });
   }
 
@@ -326,6 +376,7 @@ export class BudgetPlanner implements OnInit {
     private http: HttpClient,
     private bdjSrv: BudgetPlannerService,
     private toastr: ToastrService,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {

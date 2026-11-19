@@ -5,17 +5,11 @@ import { AgGridModule } from 'ag-grid-angular';
 import { BrowserModule } from '@angular/platform-browser';
 import { HttpClientModule } from '@angular/common/http';
 import { MaterialModule } from '../material-module';
+import { MatDialogModule } from '@angular/material/dialog';
+import { ConfirmReplaceDialog } from './confirm-replace-dialog';
 
 @NgModule({
-  declarations: [
-    BudgetPlanner
-  ],
-  imports: [
-    CommonModule,
-    HttpClientModule,
-    BrowserModule,
-    AgGridModule,
-    MaterialModule,
-  ]
+  declarations: [BudgetPlanner, ConfirmReplaceDialog],
+  imports: [CommonModule, HttpClientModule, BrowserModule, AgGridModule, MaterialModule],
 })
-export class BudgetPlannerModule { }
+export class BudgetPlannerModule {}

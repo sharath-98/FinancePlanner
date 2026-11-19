@@ -1,7 +1,10 @@
+// FILE: src/app/app.ts  (REPLACE existing file)
 import { Component, Inject, OnInit } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { SpinnerService } from './services/spinner-service';
-import { Observable } from 'rxjs';
+import { NavigationEnd, Router } from '@angular/router';
+import { Observable, filter } from 'rxjs';
+import { AuthService, AuthUser } from './auth/auth.service';
 
 type Theme = 'light' | 'dark';
 const THEME_KEY = 'ledger-theme';
@@ -15,12 +18,25 @@ const THEME_KEY = 'ledger-theme';
 export class App implements OnInit {
   loading$: Observable<boolean>;
   isDark = false;
+  /** The login page has no menu, so the header is hidden there. */
+  onLoginPage = false;
+  user$: Observable<AuthUser | null>;
 
   constructor(
     private loadingService: SpinnerService,
+    private auth: AuthService,
+    private router: Router,
     @Inject(DOCUMENT) private document: Document,
   ) {
     this.loading$ = this.loadingService.loading$;
+    this.user$ = this.auth.user$;
+    this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+      .subscribe((event) => (this.onLoginPage = event.urlAfterRedirects.startsWith('/login')));
+  }
+
+  signOut(): void {
+    this.auth.logout();
   }
 
   ngOnInit(): void {

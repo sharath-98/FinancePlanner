@@ -14,6 +14,7 @@ import { type CellClassParams, type CellStyle, type ColDef } from 'ag-grid-commu
 import { ToastrService } from 'ngx-toastr';
 import { Observable, combineLatest, map, startWith } from 'rxjs';
 import { TransactionService } from './transaction-service';
+import { AuthService } from '../auth/auth.service';
 import { gridTheme, moneyFormatter } from '../shared/grid-theme';
 import { formatUsd } from '../shared/design-tokens';
 
@@ -177,6 +178,7 @@ export class Transactions implements OnInit {
     private transSrv: TransactionService,
     private toastr: ToastrService,
     private fb: FormBuilder,
+    private auth: AuthService,
   ) {
     this.transactionForm = this.fb.group({
       type: ['expense', Validators.required],
@@ -184,7 +186,8 @@ export class Transactions implements OnInit {
       merchant: ['', Validators.required],
       date: [new Date(), Validators.required],
       amount: ['', [Validators.required, Validators.min(0.01)]],
-      paidby: ['', Validators.required],
+      // When signed in, the payer starts as the logged-in person
+      paidby: [this.auth.currentUser?.id ?? '', Validators.required],
       currency: ['USD', Validators.required],
       details: [''],
     });
@@ -352,7 +355,7 @@ export class Transactions implements OnInit {
       merchant: '',
       date: new Date(),
       amount: '',
-      paidby: '',
+      paidby: this.auth.currentUser?.id ?? '',
       currency: 'USD',
       details: '',
     };
