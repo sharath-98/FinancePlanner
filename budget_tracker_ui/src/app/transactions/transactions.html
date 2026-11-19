@@ -129,21 +129,90 @@
                 </div>
             </div>
 
-            <section class="card accent tone-expense top-card" *ngIf="rowsLoaded && topCategories.length"
-                aria-labelledby="top-title">
-                <h2 class="card-title" id="top-title">Top expense categories</h2>
-                <p class="card-sub">{{ periodLabel }}. Select one to filter the list.</p>
-                <ul class="cat-list">
-                    <li *ngFor="let c of topCategories">
-                        <button type="button" class="cat-row" [class.is-active]="selectedCategory === c.name"
-                            [attr.aria-pressed]="selectedCategory === c.name" (click)="toggleCategory(c.name)">
-                            <span class="cat-name">{{ c.name }}</span>
-                            <span class="cat-amount num">{{ usd(c.amount) }} <small>{{ c.share }}%</small></span>
-                            <span class="cat-bar" aria-hidden="true"><span class="cat-fill"
-                                    [style.width.%]="c.width"></span></span>
+            <!-- Spending by category, with the merchants behind each category -->
+            <section class="card accent tone-expense spend-card" *ngIf="rowsLoaded && slices.length"
+                aria-labelledby="spend-title">
+                <h2 class="card-title" id="spend-title">Spending by category</h2>
+                <p class="card-sub">{{ periodLabel }}. Point at or select a category to see its merchants.</p>
+
+                <div class="spend-layout" (mouseleave)="hoverSlice('')">
+                    <div class="spend-left">
+                        <div class="donut-wrap">
+                            <svg class="donut" viewBox="0 0 200 200" role="group"
+                                [attr.aria-label]="'Expenses by category, ' + periodLabel + ', total ' + usd(expenseTotal)">
+                                <path *ngFor="let s of slices" class="slice" [attr.d]="s.path"
+                                    [style.--sc]="'var(--c' + (s.index + 1) + ')'"
+                                    [class.is-dim]="hasFocus && activeSlice?.name !== s.name"
+                                    [class.is-active]="activeSlice?.name === s.name && hasFocus" tabindex="0"
+                                    role="button" [attr.aria-pressed]="pinnedName === s.name"
+                                    [attr.aria-label]="sliceLabel(s)" (mouseenter)="hoverSlice(s.name)"
+                                    (focus)="hoverSlice(s.name)" (blur)="hoverSlice('')" (click)="pinSlice(s.name)"
+                                    (keydown.enter)="pinSlice(s.name)"
+                                    (keydown.space)="pinSlice(s.name); $event.preventDefault()">
+                                    <title>{{ sliceLabel(s) }}</title>
+                                </path>
+                            </svg>
+                            <div class="donut-center" aria-hidden="true">
+                                <span class="donut-center-label">{{ hasFocus ? activeSlice?.name : 'Total spent'
+                                    }}</span>
+                                <span class="donut-center-value num">{{ usd(hasFocus ? (activeSlice?.amount ?? 0) :
+                                    expenseTotal) }}</span>
+                                <span class="donut-center-sub" *ngIf="hasFocus && activeSlice">{{
+                                    shareLabel(activeSlice.share) }} of expenses</span>
+                            </div>
+                        </div>
+
+                        <ul class="legend">
+                            <li *ngFor="let s of slices">
+                                <button type="button" class="legend-row"
+                                    [class.is-active]="activeSlice?.name === s.name && hasFocus"
+                                    [attr.aria-pressed]="pinnedName === s.name" (mouseenter)="hoverSlice(s.name)"
+                                    (focus)="hoverSlice(s.name)" (blur)="hoverSlice('')" (click)="pinSlice(s.name)">
+                                    <span class="swatch" [style.--sc]="'var(--c' + (s.index + 1) + ')'"
+                                        aria-hidden="true"></span>
+                                    <span class="legend-name">{{ s.name }}</span>
+                                    <span class="legend-amount num">{{ usd(s.amount) }} <small>{{ shareLabel(s.share)
+                                            }}</small></span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="merchant-panel" *ngIf="activeSlice as a" aria-live="polite">
+                        <div class="merchant-head">
+                            <span class="swatch" [style.--sc]="'var(--c' + (a.index + 1) + ')'"
+                                aria-hidden="true"></span>
+                            <div>
+                                <h3 class="merchant-title">{{ a.name }}</h3>
+                                <p class="merchant-sub num">{{ usd(a.amount) }} · {{ shareLabel(a.share) }} of expenses
+                                </p>
+                            </div>
+                        </div>
+
+                        <p class="merchant-note" *ngIf="a.isOther">Includes {{ a.folded.join(', ') }}.</p>
+
+                        <ul class="merchant-list">
+                            <li *ngFor="let m of a.merchants" class="merchant-row">
+                                <span class="merchant-name">{{ m.name }}</span>
+                                <span class="merchant-amount num">{{ usd(m.amount) }} <small>{{ m.count
+                                        }}×</small></span>
+                                <span class="merchant-bar" aria-hidden="true"><span class="merchant-fill"
+                                        [style.--sc]="'var(--c' + (a.index + 1) + ')'"
+                                        [style.width.%]="m.width"></span></span>
+                            </li>
+                            <li *ngIf="a.moreCount" class="merchant-row merchant-more">
+                                <span class="merchant-name">{{ a.moreCount }} more {{ a.moreCount === 1 ? 'merchant' :
+                                    'merchants' }}</span>
+                                <span class="merchant-amount num">{{ usd(a.moreAmount) }}</span>
+                            </li>
+                        </ul>
+
+                        <button *ngIf="!a.isOther" type="button" class="btn btn-secondary merchant-filter"
+                            (click)="toggleCategory(a.name)">
+                            {{ selectedCategory === a.name ? 'Show all transactions' : 'Show only these in the list' }}
                         </button>
-                    </li>
-                </ul>
+                    </div>
+                </div>
             </section>
 
             <!-- Transaction list -->
@@ -160,6 +229,12 @@
                     </div>
 
                     <div class="grid-tools">
+                        <button type="button" class="btn btn-secondary export-btn" (click)="exportCsv()"
+                            [disabled]="!rowData.length">
+                            <mat-icon aria-hidden="true">download</mat-icon>
+                            Export CSV
+                        </button>
+
                         <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
                             <mat-label>Search</mat-label>
                             <mat-icon matIconPrefix aria-hidden="true">search</mat-icon>
@@ -186,7 +261,8 @@
                 <ng-container *ngIf="rowsLoaded">
                     <ag-grid-angular *ngIf="rowData.length; else emptyRows" class="grid" [theme]="theme"
                         [rowData]="rowData" [columnDefs]="colDefs" [defaultColDef]="defaultColDef"
-                        [quickFilterText]="search" (cellClicked)="onCellClicked($event)" />
+                        [quickFilterText]="search" (cellClicked)="onCellClicked($event)"
+                        (gridReady)="onGridReady($event)" />
                     <ng-template #emptyRows>
                         <div class="empty-state">
                             <strong>No transactions in {{ periodLabel }}</strong>

@@ -15,7 +15,10 @@ import {
   type CellClickedEvent,
   type CellStyle,
   type ColDef,
+  type GridApi,
+  type GridReadyEvent,
   type ICellRendererParams,
+  type ProcessCellForExportParams,
 } from 'ag-grid-community';
 import { ToastrService } from 'ngx-toastr';
 import { Observable, combineLatest, map, startWith } from 'rxjs';
@@ -43,13 +46,31 @@ interface SummaryCard {
   tone: 'tone-income' | 'tone-expense' | 'tone-savings' | 'tone-debt';
 }
 
-interface TopCategory {
+interface MerchantSpend {
   name: string;
   amount: number;
-  /** Share of all expenses in the period, as a whole percent */
-  share: number;
-  /** Bar length as a percent of the biggest category */
+  count: number;
+  /** Bar length as a percent of the biggest merchant in the category */
   width: number;
+}
+
+interface CategorySlice {
+  name: string;
+  amount: number;
+  /** Share of all expenses in the period, in percent */
+  share: number;
+  /** Position in the chart, used to pick the slice color */
+  index: number;
+  /** True for the slice that groups the smaller categories */
+  isOther: boolean;
+  /** For the "Other" slice, the categories folded into it */
+  folded: string[];
+  /** Outline of the slice in the donut */
+  path: string;
+  merchants: MerchantSpend[];
+  /** Merchants beyond the ones listed, added together */
+  moreCount: number;
+  moreAmount: number;
 }
 
 /** Transaction types as stored in the database, with the words shown on screen. */
@@ -134,7 +155,13 @@ export class Transactions implements OnInit {
 
   usd = formatUsd;
   summaryCards: SummaryCard[] = [];
-  topCategories: TopCategory[] = [];
+  /** Expense categories drawn in the donut, biggest first. */
+  slices: CategorySlice[] = [];
+  expenseTotal = 0;
+  /** The slice under the pointer, and the one the person selected. */
+  hoveredName = '';
+  pinnedName = '';
+  private gridApi?: GridApi;
   selectedCategory = '';
   search = '';
 
@@ -611,23 +638,185 @@ export class Transactions implements OnInit {
       },
     ];
 
-    // Top five expense categories
-    const byCategory = new Map<string, number>();
+    this.buildCategoryChart(current['expense']);
+  }
+
+  /** Groups the period's expenses by category, then by merchant inside each category. */
+  private buildCategoryChart(expenseTotal: number): void {
+    const MAX_SLICES = 7; // one color each; the rest are grouped as "Other"
+    const MAX_MERCHANTS = 8;
+
+    type Merchant = { name: string; amount: number; count: number };
+    type Group = { name: string; amount: number; merchants: Map<string, Merchant> };
+    const groups = new Map<string, Group>();
     for (const row of this.monthRows) {
       if (row.type !== 'expense') continue;
-      const name = String(row.category).trim();
-      byCategory.set(name, (byCategory.get(name) ?? 0) + (Number(row.amount) || 0));
+      const amount = Number(row.amount) || 0;
+      const category = String(row.category ?? '').trim() || 'Uncategorized';
+      const group = groups.get(category) ?? { name: category, amount: 0, merchants: new Map() };
+      group.amount += amount;
+      // The same merchant in different capitals counts once
+      const merchant = String(row.merchant ?? '').trim() || 'No merchant';
+      const key = merchant.toLowerCase();
+      const entry = group.merchants.get(key) ?? { name: merchant, amount: 0, count: 0 };
+      entry.amount += amount;
+      entry.count += 1;
+      group.merchants.set(key, entry);
+      groups.set(category, group);
     }
-    const top = [...byCategory.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const biggest = top.length ? top[0][1] : 0;
-    const expenseTotal = current['expense'];
 
-    this.topCategories = top.map(([name, amount]) => ({
-      name,
-      amount,
-      share: expenseTotal > 0 ? Math.round((amount / expenseTotal) * 100) : 0,
-      width: biggest > 0 ? Math.max(4, (amount / biggest) * 100) : 0,
+    const sorted = [...groups.values()]
+      .filter((g) => g.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+    const named = sorted.length > MAX_SLICES + 1 ? sorted.slice(0, MAX_SLICES) : sorted;
+    const rest = sorted.slice(named.length);
+
+    const entries: {
+      name: string;
+      amount: number;
+      isOther: boolean;
+      folded: string[];
+      merchants: Merchant[];
+    }[] = named.map((g) => ({
+      name: g.name,
+      amount: g.amount,
+      isOther: false,
+      folded: [],
+      merchants: [...g.merchants.values()],
     }));
+    if (rest.length) {
+      const merged = new Map<string, Merchant>();
+      for (const g of rest) {
+        for (const [key, m] of g.merchants) {
+          const entry = merged.get(key) ?? { name: m.name, amount: 0, count: 0 };
+          entry.amount += m.amount;
+          entry.count += m.count;
+          merged.set(key, entry);
+        }
+      }
+      entries.push({
+        name: 'Other',
+        amount: rest.reduce((sum, g) => sum + g.amount, 0),
+        isOther: true,
+        folded: rest.map((g) => g.name),
+        merchants: [...merged.values()],
+      });
+    }
+
+    const total = entries.reduce((sum, e) => sum + e.amount, 0);
+    this.expenseTotal = expenseTotal;
+    let start = 0;
+    this.slices = entries.map((e, index) => {
+      const fraction = total > 0 ? e.amount / total : 0;
+      const path = this.arcPath(start, start + fraction);
+      start += fraction;
+      const merchants = e.merchants.sort((a, b) => b.amount - a.amount);
+      const shown = merchants.slice(0, MAX_MERCHANTS);
+      const hidden = merchants.slice(MAX_MERCHANTS);
+      const biggest = shown.length ? shown[0].amount : 0;
+      return {
+        name: e.name,
+        amount: e.amount,
+        share: fraction * 100,
+        index,
+        isOther: e.isOther,
+        folded: e.folded,
+        path,
+        merchants: shown.map((m) => ({
+          ...m,
+          width: biggest > 0 ? Math.max(3, (m.amount / biggest) * 100) : 0,
+        })),
+        moreCount: hidden.length,
+        moreAmount: hidden.reduce((sum, m) => sum + m.amount, 0),
+      };
+    });
+
+    // Forget a selection that is not in this period
+    if (!this.slices.some((s) => s.name === this.pinnedName)) this.pinnedName = '';
+    this.hoveredName = '';
+  }
+
+  /** SVG outline of a donut slice between two positions (0 to 1) around the circle, starting at the top. */
+  private arcPath(from: number, to: number): string {
+    const cx = 100,
+      cy = 100,
+      outer = 92,
+      inner = 58;
+    const point = (fraction: number, radius: number): string => {
+      const angle = fraction * 2 * Math.PI - Math.PI / 2;
+      return `${(cx + radius * Math.cos(angle)).toFixed(2)} ${(cy + radius * Math.sin(angle)).toFixed(2)}`;
+    };
+    if (to - from >= 0.9999) {
+      // A full circle cannot be one arc, so draw two halves
+      return (
+        `M ${point(0, outer)} A ${outer} ${outer} 0 1 1 ${point(0.5, outer)} A ${outer} ${outer} 0 1 1 ${point(0, outer)} ` +
+        `M ${point(0, inner)} A ${inner} ${inner} 0 1 0 ${point(0.5, inner)} A ${inner} ${inner} 0 1 0 ${point(0, inner)} Z`
+      );
+    }
+    const large = to - from > 0.5 ? 1 : 0;
+    return (
+      `M ${point(from, outer)} A ${outer} ${outer} 0 ${large} 1 ${point(to, outer)} ` +
+      `L ${point(to, inner)} A ${inner} ${inner} 0 ${large} 0 ${point(from, inner)} Z`
+    );
+  }
+
+  /** The slice named in the panel: the one under the pointer, else the selected one, else the biggest. */
+  get activeSlice(): CategorySlice | undefined {
+    const name = this.hoveredName || this.pinnedName;
+    return this.slices.find((s) => s.name === name) ?? this.slices[0];
+  }
+
+  /** True while a slice is hovered or selected, so the others can be dimmed. */
+  get hasFocus(): boolean {
+    return !!(this.hoveredName || this.pinnedName);
+  }
+
+  hoverSlice(name: string): void {
+    this.hoveredName = name;
+  }
+
+  /** Selecting a slice keeps its merchants on screen; selecting it again lets go. */
+  pinSlice(name: string): void {
+    this.pinnedName = this.pinnedName === name ? '' : name;
+  }
+
+  shareLabel(share: number): string {
+    return share > 0 && share < 1 ? '<1%' : `${Math.round(share)}%`;
+  }
+
+  sliceLabel(s: CategorySlice): string {
+    return `${s.name}: ${this.usd(s.amount)}, ${this.shareLabel(s.share)} of expenses`;
+  }
+
+  onGridReady(event: GridReadyEvent): void {
+    this.gridApi = event.api;
+  }
+
+  /** Downloads what the list shows (the chosen month or year, after any filter or search) as a CSV file. */
+  exportCsv(): void {
+    if (!this.gridApi || !this.rowData.length) return;
+    const stamp =
+      this.selectedMonth === 0
+        ? String(this.selectedYear)
+        : `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}`;
+    this.gridApi.exportDataAsCsv({
+      fileName: `transactions-${stamp}.csv`,
+      columnKeys: ['date', 'type', 'category', 'merchant', 'amount', 'details'],
+      processCellCallback: (params): any => this.csvCell(params),
+    });
+  }
+
+  /** Plain values for the file: ISO dates, numbers without $ or commas, and text that spreadsheets cannot run as formulas. */
+  private csvCell(params: ProcessCellForExportParams): string | number {
+    const field = params.column.getColId();
+    const data = params.node?.data;
+    if (field === 'amount') return Number(data?.amount) || 0;
+    if (field === 'date') {
+      const [month, day, year] = String(data?.date ?? '').split('-');
+      return year ? `${year}-${month}-${day}` : '';
+    }
+    const text = params.value == null ? '' : String(params.value);
+    return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
   }
 
   loadTransactions(): void {
