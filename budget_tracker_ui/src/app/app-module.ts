@@ -1,3 +1,4 @@
+// FILE: src/app/app-module.ts  (REPLACE existing file)
 import { NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 
@@ -15,9 +16,10 @@ import { HomeModule } from './home/home-module';
 import { TransactionModule } from './transactions/transaction-module';
 import { SpinnerService } from './services/spinner-service';
 import { LoadingInterceptor } from './interceptor/loading.interceptor';
+import { AuthInterceptor } from './auth/auth.interceptor';
+import { AuthModule } from './auth/auth-module';
 import { AgChartsModule } from 'ag-charts-angular';
 import { MatMomentDateModule, MomentDateAdapter } from '@angular/material-moment-adapter';
-
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -33,6 +35,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     BudgetPlannerModule,
     HomeModule,
     TransactionModule,
+    AuthModule,
     FontAwesomeModule,
     ToastrModule.forRoot(),
   ],
@@ -43,6 +46,11 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     {
       provide: HTTP_INTERCEPTORS,
       useClass: LoadingInterceptor,
+      multi: true,
+    },
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: AuthInterceptor,
       multi: true,
     },
   ],

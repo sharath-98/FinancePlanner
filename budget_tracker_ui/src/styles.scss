@@ -1,0 +1,468 @@
+// FILE: src/styles.scss  (REPLACE the Step 1 version)
+@use '@angular/material' as mat;
+
+/* ==========================================================================
+   Ledger — design system foundation
+   One place for color, type, spacing, radius and elevation.
+   Every component should read these variables instead of hardcoding values.
+   ========================================================================== */
+
+/* ---------- 1. Design tokens ---------- */
+:root {
+  /* Surfaces */
+  --bg: #f3f5f2;
+  --surface: #ffffff;
+  --surface-2: #f8faf7;
+  --surface-sunken: #ecefeb;
+  --border: #dfe4de;
+  --border-strong: #c9d0c8;
+
+  /* Text */
+  --text: #15211e;
+  --text-muted: #5b6b66;
+  --text-faint: #66756f;
+  --text-on-brand: #ffffff;
+
+  /* Brand */
+  --brand: #0f5c4d;
+  --brand-hover: #0b4a3e;
+  --brand-soft: #e1efeb;
+
+  /* Money categories — one meaning, one color, used everywhere */
+  --income: #1e8e5a;
+  --income-soft: #e3f4ec;
+  --expense: #d2493f;
+  --expense-soft: #fbe9e7;
+  --savings: #2f6fd0;
+  --savings-soft: #e6eefb;
+  --debt: #c98312;
+  --debt-soft: #fbf1dd;
+
+  /* Feedback */
+  --positive: var(--income);
+  --negative: var(--expense);
+  --focus-ring: #2f6fd0;
+
+  /* Type */
+  --font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.9375rem;
+  --fs-md: 1.0625rem;
+  --fs-lg: 1.375rem;
+  --fs-xl: 1.875rem;
+  --fs-display: 2.25rem;
+
+  /* Spacing (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Shape — larger radius for containers, smaller for controls */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Elevation — borders do most of the work, shadows are reserved for overlays */
+  --shadow-card: 0 1px 2px rgba(21, 33, 30, 0.04);
+  --shadow-raised: 0 6px 20px rgba(21, 33, 30, 0.1);
+
+  /* Layout */
+  --page-max: 1440px;
+  --header-h: 64px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur: 160ms;
+}
+
+/* Dark theme (toggle arrives with the app shell step) */
+[data-theme='dark'] {
+  --bg: #0e1513;
+  --surface: #151e1b;
+  --surface-2: #1a2420;
+  --surface-sunken: #101916;
+  --border: #25312d;
+  --border-strong: #33423d;
+
+  --text: #e8efec;
+  --text-muted: #9bada7;
+  --text-faint: #84968f;
+
+  --brand: #3fb59b;
+  --brand-hover: #5cc8af;
+  --brand-soft: #173029;
+  --text-on-brand: #06201a;
+
+  --income: #3fc58a;
+  --income-soft: #15302a;
+  --expense: #f0766c;
+  --expense-soft: #3a1f1d;
+  --savings: #6a9df0;
+  --savings-soft: #1b2a45;
+  --debt: #e6a73d;
+  --debt-soft: #3a2d14;
+
+  --focus-ring: #6a9df0;
+  --shadow-card: none;
+  --shadow-raised: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- 2. Angular Material 3 theme ---------- */
+html {
+  color-scheme: light;
+  @include mat.theme(
+    (
+      color: (
+        theme-type: color-scheme,
+        primary: mat.$green-palette,
+      ),
+      typography: (
+        plain-family: 'Manrope',
+        brand-family: 'Manrope',
+      ),
+      density: -1,
+    )
+  );
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* Point Material's system tokens at our palette so both stay in sync */
+html {
+  --mat-sys-primary: var(--brand);
+  --mat-sys-on-primary: var(--text-on-brand);
+  --mat-sys-surface: var(--surface);
+  --mat-sys-background: var(--bg);
+  --mat-sys-on-surface: var(--text);
+  --mat-sys-outline: var(--border-strong);
+  --mat-sys-error: var(--expense);
+
+  --mat-form-field-container-shape: var(--radius-md);
+  --mat-outlined-text-field-outline-color: var(--border-strong);
+  --mat-card-elevated-container-shape: var(--radius-lg);
+  --mat-expansion-container-shape: var(--radius-lg);
+}
+
+/* ---------- 3. Base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+p {
+  margin: 0;
+}
+
+/* Money should line up in columns */
+.num,
+.ag-cell,
+.mat-mdc-form-field input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- 4. Layout helpers ---------- */
+.page {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-5) var(--space-7);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+
+  h1 {
+    font-size: var(--fs-xl);
+  }
+
+  .page-sub {
+    margin-top: var(--space-1);
+    color: var(--text-muted);
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.grid-auto {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* ---------- 5. Surfaces ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-5);
+}
+
+.card-title {
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+
+.card-sub {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* Category accent: a colored left edge, applied with one class */
+.tone-income {
+  --tone: var(--income);
+  --tone-soft: var(--income-soft);
+}
+.tone-expense {
+  --tone: var(--expense);
+  --tone-soft: var(--expense-soft);
+}
+.tone-savings {
+  --tone: var(--savings);
+  --tone-soft: var(--savings-soft);
+}
+.tone-debt {
+  --tone: var(--debt);
+  --tone-soft: var(--debt-soft);
+}
+.tone-neutral {
+  --tone: var(--brand);
+  --tone-soft: var(--brand-soft);
+}
+
+.card.accent {
+  border-left: 4px solid var(--tone, var(--brand));
+}
+
+.text-tone {
+  color: var(--tone, var(--text));
+}
+.text-muted {
+  color: var(--text-muted);
+}
+.text-positive {
+  color: var(--positive);
+}
+.text-negative {
+  color: var(--negative);
+}
+
+/* ---------- 6. Buttons (replaces the global `button {}` hacks) ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: 600 var(--fs-base) var(--font);
+  cursor: pointer;
+  background: var(--brand);
+  color: var(--text-on-brand);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+
+  &:hover:not(:disabled) {
+    background: var(--brand-hover);
+  }
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &.btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border-strong);
+
+    &:hover:not(:disabled) {
+      background: var(--surface-2);
+    }
+  }
+
+  &.btn-ghost {
+    background: transparent;
+    color: var(--brand);
+
+    &:hover:not(:disabled) {
+      background: var(--brand-soft);
+    }
+  }
+
+  &.btn-tone {
+    background: var(--tone-soft, var(--brand-soft));
+    color: color-mix(in srgb, var(--tone, var(--brand)) 60%, var(--text));
+    border-color: transparent;
+
+    &:hover:not(:disabled) {
+      border-color: var(--tone, var(--brand));
+    }
+  }
+
+  &.btn-sm {
+    height: 32px;
+    padding: 0 var(--space-3);
+    font-size: var(--fs-sm);
+  }
+}
+
+/* ---------- 7. Small components ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  background: var(--tone-soft, var(--brand-soft));
+  /* Text is the tone color pulled toward the page text color, so it stays readable on the soft background */
+  color: color-mix(in srgb, var(--tone, var(--brand)) 60%, var(--text));
+}
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-5);
+  text-align: center;
+  color: var(--text-muted);
+
+  strong {
+    color: var(--text);
+    font-size: var(--fs-md);
+  }
+}
+
+/* ---------- 7a. KPI cards (Dashboard and Transactions) ---------- */
+.kpi-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.kpi.card {
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+}
+
+.kpi-label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.kpi-value {
+  margin: var(--space-1) 0;
+  font-size: clamp(1.25rem, 1.4vw + 0.65rem, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text);
+  overflow-wrap: anywhere;
+
+  &.is-negative {
+    color: var(--negative);
+  }
+}
+
+.kpi-note {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+/* Text for screen readers only */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- 7b. AG Grid helpers (classes returned from grid-theme.ts / grids) ---------- */
+.ag-cell.zero-cell {
+  color: var(--text-faint);
+}
+
+.ag-row.total-row {
+  font-weight: 700;
+  background: var(--surface-sunken);
+}
+
+/* ---------- 8. Responsive ---------- */
+@media (max-width: 720px) {
+  .page {
+    padding: var(--space-4) var(--space-3) var(--space-6);
+  }
+  .page-header h1 {
+    font-size: var(--fs-lg);
+  }
+}

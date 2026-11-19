@@ -1,0 +1,44 @@
+<!-- FILE: src/app/auth/login.html  (NEW file) -->
+<div class="login-wrap">
+    <section class="card login-card" aria-labelledby="login-title">
+        <div class="login-brand">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9" fill="currentColor" />
+                <rect x="7" y="16" width="4.5" height="9" rx="1.2" fill="#fff" opacity="0.55" />
+                <rect x="13.75" y="11" width="4.5" height="14" rx="1.2" fill="#fff" opacity="0.8" />
+                <rect x="20.5" y="6" width="4.5" height="19" rx="1.2" fill="#fff" />
+            </svg>
+            <span class="brand-name">Ledger</span>
+        </div>
+
+        <h1 id="login-title">Sign in</h1>
+        <p class="card-sub">Use your username and password to open your budget.</p>
+
+        <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+            <mat-form-field appearance="outline" class="full">
+                <mat-label>Username</mat-label>
+                <input matInput formControlName="username" autocomplete="username" autocapitalize="none"
+                    spellcheck="false" />
+                <mat-error>Enter your username.</mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full">
+                <mat-label>Password</mat-label>
+                <input matInput formControlName="password" [type]="showPassword ? 'text' : 'password'"
+                    autocomplete="current-password" />
+                <button matSuffix type="button" class="icon-btn" (click)="showPassword = !showPassword"
+                    [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+                    [attr.aria-pressed]="showPassword">
+                    <mat-icon aria-hidden="true">{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+                <mat-error>Enter your password.</mat-error>
+            </mat-form-field>
+
+            <p class="login-error" role="alert" aria-live="polite">{{ errorMessage }}</p>
+
+            <button type="submit" class="btn login-submit" [disabled]="submitting">
+                {{ submitting ? 'Signing in…' : 'Sign in' }}
+            </button>
+        </form>
+    </section>
+</div>

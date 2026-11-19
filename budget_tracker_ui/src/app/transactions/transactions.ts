@@ -1,15 +1,35 @@
-import { Component } from '@angular/core';import {
-  inputStyleBordered,
+// FILE: src/app/transactions/transactions.ts  (REPLACE existing file)
+import { Component, OnInit, ViewChild } from '@angular/core';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormGroup,
+  FormGroupDirective,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
+import { provideNativeDateAdapter } from '@angular/material/core';
+import { MatSelectChange } from '@angular/material/select';
+import {
+  type CellClassParams,
+  type CellClickedEvent,
+  type CellStyle,
   type ColDef,
   type GridApi,
   type GridReadyEvent,
-  type ValueParserParams,
+  type ICellRendererParams,
+  type ProcessCellForExportParams,
 } from 'ag-grid-community';
-import { TransactionService } from './transaction-service';
 import { ToastrService } from 'ngx-toastr';
-import { HttpClient } from '@angular/common/http';
-import { FormBuilder, FormGroup, Validators} from '@angular/forms';
-import { map, Observable, startWith } from 'rxjs';
+import { Observable, combineLatest, map, startWith } from 'rxjs';
+import { TransactionService } from './transaction-service';
+import { AuthService } from '../auth/auth.service';
+import { MatDialog } from '@angular/material/dialog';
+import { CategoryManagerDialog } from './category-manager-dialog';
+import { EntryFinderDialog } from './entry-finder-dialog';
+import { TransactionActions } from './transaction-actions';
+import { gridTheme, moneyFormatter } from '../shared/grid-theme';
+import { formatUsd } from '../shared/design-tokens';
 
 interface Category {
   id: number;
@@ -17,38 +37,210 @@ interface Category {
   type: string;
 }
 
+interface SummaryCard {
+  key: string;
+  label: string;
+  value: number;
+  note: string;
+  /** Class from styles.scss that sets the card's accent color */
+  tone: 'tone-income' | 'tone-expense' | 'tone-savings' | 'tone-debt';
+}
+
+interface MerchantSpend {
+  name: string;
+  amount: number;
+  count: number;
+  /** Bar length as a percent of the biggest merchant in the category */
+  width: number;
+}
+
+interface CategorySlice {
+  name: string;
+  amount: number;
+  /** Share of all expenses in the period, in percent */
+  share: number;
+  /** Position in the chart, used to pick the slice color */
+  index: number;
+  /** True for the slice that groups the smaller categories */
+  isOther: boolean;
+  /** For the "Other" slice, the categories folded into it */
+  folded: string[];
+  /** Outline of the slice in the donut */
+  path: string;
+  merchants: MerchantSpend[];
+  /** Merchants beyond the ones listed, added together */
+  moreCount: number;
+  moreAmount: number;
+}
+
+/** Transaction types as stored in the database, with the words shown on screen. */
+const TYPE_LABELS: Record<string, string> = {
+  expense: 'Expense',
+  income: 'Income',
+  saving: 'Savings',
+  debt: 'Debt',
+};
+const TYPE_ORDER = ['expense', 'income', 'saving', 'debt'];
+const TYPE_COLORS: Record<string, string> = {
+  expense: 'var(--expense)',
+  income: 'var(--income)',
+  saving: 'var(--savings)',
+  debt: 'var(--debt)',
+};
+
+/** The category box must hold a category picked from the list, not free text. */
+function categoryPicked(control: AbstractControl): ValidationErrors | null {
+  const value = control.value;
+  return value && typeof value === 'object' && value.id ? null : { categoryPicked: true };
+}
+
+/** The API sends dates as MM-DD-YYYY text; sort them as real dates. */
+function dateKey(value?: string): number {
+  if (!value) return 0;
+  const [month, day, year] = value.split('-').map(Number);
+  return year * 10000 + month * 100 + day;
+}
+
 @Component({
   selector: 'app-transactions',
   standalone: false,
   templateUrl: './transactions.html',
   styleUrl: './transactions.css',
+  // Full dates (day included) in the date picker, whatever the rest of the app uses
+  providers: [provideNativeDateAdapter()],
 })
-export class Transactions {
-  categories = [];
-  types = [];
-  currencies = ['USD'];
-  users: any;
-  transactionForm!: FormGroup;
-  filteredCategories!: Observable<Category[]>;
-  filteredMerchants: any;
+export class Transactions implements OnInit {
+  @ViewChild(FormGroupDirective) formDir!: FormGroupDirective;
 
-  merchants: any;
-  isNewMerchantEntry!: boolean;
+  categories: Category[] = [];
+  types: string[] = [];
+  currencies = ['USD'];
+  users: { id: number; name: string }[] = [];
+
+  transactionForm: FormGroup;
+  filteredCategories!: Observable<Category[]>;
+  merchants: string[] = [];
+  filteredMerchants: string[] = [];
+  isNewMerchantEntry = false;
+
+  saving = false;
+  /** On phones the form is collapsed until "Add transaction" is tapped. */
+  formOpen = false;
+
+  years: number[] = [];
+  selectedYear!: number;
+  /** 0 means the whole year; otherwise 1-12. Starts on the current month. */
+  selectedMonth = new Date().getMonth() + 1;
+  readonly months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  /** Every transaction in the selected year. */
+  private allRows: any[] = [];
+  /** The rows for the chosen month (or the whole year). Totals and top categories use these. */
+  private monthRows: any[] = [];
+  /** What the grid shows: monthRows, narrowed to one category when a top category is selected. */
+  rowData: any[] = [];
+  rowsLoaded = false;
+
+  usd = formatUsd;
+  summaryCards: SummaryCard[] = [];
+  /** Expense categories drawn in the donut, biggest first. */
+  slices: CategorySlice[] = [];
+  expenseTotal = 0;
+  /** The slice under the pointer, and the one the person selected. */
+  hoveredName = '';
+  pinnedName = '';
+  private gridApi?: GridApi;
+  selectedCategory = '';
+  search = '';
+
+  theme = gridTheme('neutral');
+
+  /** Column choices for small screens are made once, when the page loads. */
+  private isPhone = window.matchMedia('(max-width: 720px)').matches;
+
+  colDefs: ColDef[] = [
+    {
+      field: 'date',
+      headerName: 'Date',
+      minWidth: 120,
+      flex: 1,
+      comparator: (a: string, b: string) => dateKey(a) - dateKey(b),
+      sort: 'desc',
+    },
+    {
+      field: 'type',
+      headerName: 'Type',
+      hide: this.isPhone,
+      minWidth: 110,
+      flex: 1,
+      valueFormatter: (p) => TYPE_LABELS[p.value] ?? p.value,
+      cellStyle: (p: CellClassParams): CellStyle | null => {
+        const color = TYPE_COLORS[p.value];
+        return color ? { color, fontWeight: 600 } : null;
+      },
+    },
+    { field: 'category', headerName: 'Category', minWidth: this.isPhone ? 160 : 200, flex: 2 },
+    { field: 'merchant', headerName: 'Merchant', minWidth: this.isPhone ? 140 : 180, flex: 2 },
+    {
+      field: 'amount',
+      headerName: 'Amount',
+      type: 'rightAligned',
+      minWidth: 120,
+      flex: 1,
+      valueFormatter: moneyFormatter,
+    },
+    { field: 'details', headerName: 'Details', hide: this.isPhone, minWidth: 240, flex: 3 },
+    {
+      // Edit and delete buttons for each row; clicks are handled in onCellClicked
+      colId: 'actions',
+      headerName: '',
+      width: 100,
+      pinned: 'right',
+      lockPinned: true,
+      sortable: false,
+      filter: false,
+      resizable: false,
+      suppressMovable: true,
+      cellRenderer: (params: ICellRendererParams) => this.actionButtons(params),
+    },
+  ];
+
+  defaultColDef: ColDef = {
+    filter: true,
+    sortable: true,
+    resizable: true,
+    editable: false, // there is no update endpoint yet, so edits would not be saved
+  };
 
   constructor(
-    private http: HttpClient,
     private transSrv: TransactionService,
     private toastr: ToastrService,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private auth: AuthService,
+    private dialog: MatDialog,
+    private actions: TransactionActions,
   ) {
     this.transactionForm = this.fb.group({
-      category: ['', Validators.required],
+      type: ['expense', Validators.required],
+      category: ['', [Validators.required, categoryPicked]],
       merchant: ['', Validators.required],
-      date: ['', Validators.required],
-      paidby: ['', Validators.required],
+      date: [new Date(), Validators.required],
       amount: ['', [Validators.required, Validators.min(0.01)]],
-      type: ['', Validators.required],
-      currency: ['', Validators.required],
+      // When signed in, the payer starts as the logged-in person
+      paidby: [this.auth.currentUser?.id ?? '', Validators.required],
+      currency: ['USD', Validators.required],
       details: [''],
     });
   }
@@ -60,150 +252,586 @@ export class Transactions {
       this.years.push(y);
     }
 
-    this.transSrv.get_users().subscribe(data => {
-      this.users = data
-    })
+    this.transSrv.get_users().subscribe((data) => {
+      this.users = Array.isArray(data) ? data : [];
+    });
 
+    this.loadCategories();
+
+    const typeControl = this.transactionForm.get('type')!;
+    const categoryControl = this.transactionForm.get('category')!;
+    const merchantControl = this.transactionForm.get('merchant')!;
+
+    // Category choices follow the selected type
+    this.filteredCategories = combineLatest([
+      typeControl.valueChanges.pipe(startWith(typeControl.value)),
+      categoryControl.valueChanges.pipe(startWith(categoryControl.value)),
+    ]).pipe(
+      map(([type, category]) =>
+        this.filterCategories(type, typeof category === 'string' ? category : category?.name),
+      ),
+    );
+
+    // Changing the type clears the category and merchant, which belong to the old type
+    typeControl.valueChanges.subscribe(() => {
+      categoryControl.setValue('');
+      merchantControl.setValue('');
+      this.clearMerchants();
+    });
+
+    merchantControl.valueChanges.subscribe((value) => this.onMerchantInput(value));
+
+    this.loadTransactions();
+  }
+
+  /* ---------- Form helpers ---------- */
+
+  private loadCategories(): void {
     this.transSrv.get_categories().subscribe((data) => {
-      this.categories = data['categories'];
-      this.types = data['types'];
-    });
-
-    this.filteredCategories = this.transactionForm.get('category')!.valueChanges.pipe(
-      startWith(''),
-      map((value) => (typeof value === 'string' ? value : value?.name)),
-      map((name) => (name ? this._filterCategories(name) : this.categories.slice()))
-    );
-
-    this.transactionForm.get('merchant')?.valueChanges.subscribe((value) => {
-      if (this.merchants.length > 0) {
-        this.isNewMerchantEntry = value && !this.merchants.includes(value);
-        this.filteredMerchants = this.merchants.filter((option: any) =>
-          option.toLowerCase().includes((value || '').toLowerCase())
-        );
-      } else {
-        this.isNewMerchantEntry = true;
-      }
-    });
-
-    this.getInitialGrids();
-  }
-
-  OnCategorySelection() {
-    this.merchants = [];
-    this.filteredMerchants = [];
-    this.isNewMerchantEntry = false;
-
-    let payload = {
-      category_id: this.transactionForm.value.category.id,
-    };
-
-    this.transSrv.get_subcategory(payload).subscribe((data) => {
-      this.merchants = data;
+      this.categories = data?.['categories'] ?? [];
+      const types: string[] = data?.['types'] ?? [];
+      this.types = [...types].sort((a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b));
+      // Re-run the category filter now that the list has arrived
+      this.transactionForm.get('category')!.updateValueAndValidity();
     });
   }
 
-  addNewMerchant() {
-    let payload = {
-      category_id: this.transactionForm.value.category.id,
-      merchant: this.transactionForm.value.merchant,
-    };
+  /** Opens the categories and merchants search; the category list reloads when one is added. */
+  openCategories(): void {
+    this.dialog.open(CategoryManagerDialog, {
+      width: '680px',
+      maxWidth: '94vw',
+      maxHeight: '90vh',
+      autoFocus: 'dialog',
+      data: { onAdded: () => this.loadCategories() },
+    });
+  }
 
-    this.transSrv.save_subcategory(payload).subscribe(
-      (data) => {
-        this.toastr.success('Added a new merchant.');
+  /** Opens the search for finding an entry to edit or delete; the list reloads after a change. */
+  openEntryFinder(): void {
+    this.dialog.open(EntryFinderDialog, {
+      width: '720px',
+      maxWidth: '94vw',
+      maxHeight: '92vh',
+      autoFocus: 'dialog',
+      data: {
+        categories: this.categories,
+        users: this.users,
+        onChanged: () => this.loadTransactions(),
       },
-      (error) => {
-        this.toastr.error('Error is adding a new merchant');
-      }
+    });
+  }
+
+  /** The pencil and bin buttons shown at the end of every row. */
+  private actionButtons(params: ICellRendererParams): HTMLElement {
+    const box = document.createElement('div');
+    box.className = 'row-actions';
+    if (params.data?.id == null) return box;
+
+    const make = (action: 'edit' | 'delete', icon: string, label: string) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `row-action-btn ${action}`;
+      button.dataset['action'] = action;
+      button.setAttribute('aria-label', `${label} ${params.data.merchant}`);
+      button.title = label;
+      const glyph = document.createElement('span');
+      glyph.className = 'material-icons';
+      glyph.setAttribute('aria-hidden', 'true');
+      glyph.textContent = icon;
+      button.appendChild(glyph);
+      return button;
+    };
+    box.append(make('edit', 'edit', 'Edit'), make('delete', 'delete', 'Delete'));
+    return box;
+  }
+
+  /** True while an edit or delete is being opened, so a double tap cannot start it twice. */
+  private rowActionBusy = false;
+
+  onCellClicked(event: CellClickedEvent): void {
+    if (event.colDef.colId !== 'actions' || this.rowActionBusy || event.data?.id == null) return;
+    const button = (event.event?.target as HTMLElement | null)?.closest<HTMLButtonElement>(
+      'button[data-action]',
     );
+    if (!button) return;
+
+    const action = button.dataset['action'];
+    this.rowActionBusy = true;
+    this.actions.loadEntry(Number(event.data.id)).subscribe({
+      next: (entry) => {
+        if (!entry) {
+          this.rowActionBusy = false;
+          this.toastr.error('That transaction no longer exists.');
+          this.loadTransactions();
+          return;
+        }
+        if (action === 'edit') {
+          this.actions.edit(entry, this.categories, this.users, () => this.loadTransactions());
+          this.rowActionBusy = false;
+        } else {
+          this.actions.remove(
+            entry,
+            () => this.loadTransactions(),
+            () => (this.rowActionBusy = false),
+          );
+        }
+      },
+      error: () => {
+        this.rowActionBusy = false;
+        this.toastr.error('Could not open that transaction. Check that the API is running.');
+      },
+    });
   }
 
-  onYearChange(event: any) {
-    this.selectedYear = event.value;
-    this.getInitialGrids();
-  }
-
-  private _filterCategories(name: string): Category[] {
-    const filterValue = name.toLowerCase();
-    return this.categories.filter((option: any) => option.name.toLowerCase().includes(filterValue));
-  }
-
-  private _filterMerchants(name: string): any {
-    const filterValue = name.toLowerCase();
-    return this.categories.filter((option: any) => option.toLowerCase().includes(filterValue));
+  typeLabel(type: string): string {
+    return TYPE_LABELS[type] ?? type;
   }
 
   displayCategory(category: any): string {
-    return category && category.name ? category.name : '';
+    return category && category.name ? category.name.trim() : '';
   }
 
-  displayMerchants(merchant: any): string {
-    return merchant ? merchant : '';
+  private filterCategories(type: string, text?: string): Category[] {
+    const needle = (text ?? '').toLowerCase();
+    return this.categories.filter(
+      (c) => (!type || c.type === type) && c.name.toLowerCase().includes(needle),
+    );
   }
 
-  onSubmit() {
-    // handle form submission
-    if (this.transactionForm.valid) {
-      let payload = {
-        transaction: this.transactionForm.value,
-      };
-      payload['transaction']['date'] = new Date(payload['transaction']['date']).toISOString();
-      console.log(payload);
-      this.transSrv.save_expense(payload).subscribe(
-        (data) => {
-          this.toastr.success('Transaction saved');
-          this.getInitialGrids();
-        },
-        (error) => {
-          this.toastr.success('Error in saving the transaction.');
-        }
-      );
-    }
-  }
+  onCategorySelected(): void {
+    const category = this.transactionForm.value.category;
+    this.clearMerchants();
+    this.transactionForm.patchValue({ merchant: '' });
 
-  gridApi!: GridApi<any>;
-  selectedYear?: any;
-  years: number[] = [];
-  expenseRowData = [];
-
-  colDefs = [
-    { field: 'date', headerName: 'Date' },
-    { field: 'type', headerName: 'Type' },
-    { field: 'category', headerName: 'Category' },
-    { field: 'merchant', headerName: 'Merchant' },
-    { field: 'amount', headerName: 'Amount' },
-    { field: 'details', headerName: 'Details' },
-  ];
-
-  defaultColDef: ColDef = {
-    filter: true, // Enable filtering on all columns
-    editable: true, // Enable editing on all columns
-    sortable: true,
-  };
-
-  onGridReady(params: any) {
-    this.gridApi = params.api;
-  }
-
-  autoSizeStrategy: any = {
-    type: 'fitGridWidth',
-    defaultMinWidth: 70,
-    columnLimits: [
-      {
-        colId: 'category',
-        minWidth: 250,
-      },
-    ],
-  };
-
-  getInitialGrids() {
-    this.expenseRowData = [];
-    this.transSrv.get_yearly_transactions({ year: this.selectedYear }).subscribe((data) => {
-      this.expenseRowData = data;
-      this.gridApi.refreshCells({ force: true });
+    if (!category?.id) return;
+    this.transSrv.get_subcategory({ category_id: category.id }).subscribe((data) => {
+      this.merchants = Array.isArray(data) ? data : [];
+      this.filteredMerchants = [...this.merchants];
     });
   }
 
-  onCellValueChanged(event: any) {}
+  private clearMerchants(): void {
+    this.merchants = [];
+    this.filteredMerchants = [];
+    this.isNewMerchantEntry = false;
+  }
+
+  private onMerchantInput(value: string): void {
+    const text = (value ?? '').trim().toLowerCase();
+    this.filteredMerchants = this.merchants.filter((m) => m.toLowerCase().includes(text));
+    const hasCategory = !!this.transactionForm.value.category?.id;
+    this.isNewMerchantEntry =
+      hasCategory && text.length > 0 && !this.merchants.some((m) => m.toLowerCase() === text);
+  }
+
+  addNewMerchant(): void {
+    const { category, merchant } = this.transactionForm.value;
+    const name = String(merchant ?? '').trim();
+    if (!category?.id || !name) return;
+
+    this.transSrv.save_subcategory({ category_id: category.id, merchant: name }).subscribe({
+      next: (rows) => {
+        this.merchants = Array.isArray(rows)
+          ? rows.map((r: any) => r.merchant)
+          : [...this.merchants, name];
+        this.filteredMerchants = [...this.merchants];
+        this.isNewMerchantEntry = false;
+        this.toastr.success('Merchant added.');
+      },
+      error: () =>
+        this.toastr.error(
+          'Could not add the merchant. Check that the API is running and try again.',
+        ),
+    });
+  }
+
+  /* ---------- Save and reset ---------- */
+
+  onSubmit(): void {
+    if (this.transactionForm.invalid || this.saving) return;
+
+    const value = this.transactionForm.value;
+    const payload = {
+      transaction: {
+        ...value,
+        date: new Date(value.date).toISOString(),
+        details: value.details ?? '',
+      },
+    };
+
+    this.saving = true;
+    this.transSrv.save_expense(payload).subscribe({
+      next: () => {
+        this.saving = false;
+        this.toastr.success('Transaction saved.');
+        // Keep type, date, payer and currency so a run of entries is quick to enter
+        this.formDir.resetForm({
+          ...this.defaultValues(),
+          type: value.type,
+          date: value.date,
+          paidby: value.paidby,
+          currency: value.currency,
+        });
+        this.clearMerchants();
+        this.formOpen = false;
+        this.showMonthOf(value.date);
+        this.loadTransactions();
+      },
+      error: () => {
+        this.saving = false;
+        this.toastr.error(
+          'Could not save the transaction. Check the fields and that the API is running.',
+        );
+      },
+    });
+  }
+
+  onReset(): void {
+    this.formDir.resetForm(this.defaultValues());
+    this.clearMerchants();
+  }
+
+  private defaultValues() {
+    return {
+      type: 'expense',
+      category: '',
+      merchant: '',
+      date: new Date(),
+      amount: '',
+      paidby: this.auth.currentUser?.id ?? '',
+      currency: 'USD',
+      details: '',
+    };
+  }
+
+  /* ---------- Grid ---------- */
+
+  onYearChange(event: MatSelectChange): void {
+    this.selectedYear = event.value;
+    this.selectedCategory = '';
+    this.loadTransactions();
+  }
+
+  onMonthChange(event: MatSelectChange): void {
+    this.selectedMonth = event.value;
+    this.selectedCategory = '';
+    this.applyMonthFilter();
+  }
+
+  /** "November 2026", or just "2026" when the whole year is shown. */
+  get periodLabel(): string {
+    return this.selectedMonth === 0
+      ? String(this.selectedYear)
+      : `${this.months[this.selectedMonth - 1]} ${this.selectedYear}`;
+  }
+
+  /** After saving, jump to the month of the new transaction so it is visible in the list. */
+  private showMonthOf(date: Date | string): void {
+    this.selectedCategory = '';
+    const saved = new Date(date);
+    if (this.years.includes(saved.getFullYear())) {
+      this.selectedYear = saved.getFullYear();
+      if (this.selectedMonth !== 0) {
+        this.selectedMonth = saved.getMonth() + 1;
+      }
+    }
+  }
+
+  /** Rows arrive as MM-DD-YYYY text, so the month is the part before the first dash. */
+  private monthOf(row: any): number {
+    return Number(String(row.date).split('-')[0]);
+  }
+
+  private applyMonthFilter(): void {
+    this.monthRows =
+      this.selectedMonth === 0
+        ? this.allRows
+        : this.allRows.filter((row) => this.monthOf(row) === this.selectedMonth);
+    this.buildSummary();
+    this.applyCategoryFilter();
+  }
+
+  private applyCategoryFilter(): void {
+    this.rowData = this.selectedCategory
+      ? this.monthRows.filter((row) => String(row.category).trim() === this.selectedCategory)
+      : this.monthRows;
+  }
+
+  /** Tapping a top category narrows the list to it; tapping it again shows everything. */
+  toggleCategory(name: string): void {
+    this.selectedCategory = this.selectedCategory === name ? '' : name;
+    this.applyCategoryFilter();
+  }
+
+  clearCategory(): void {
+    this.selectedCategory = '';
+    this.applyCategoryFilter();
+  }
+
+  /** Sums amounts per transaction type (the API may send amounts as text, so convert). */
+  private totals(rows: any[]): Record<string, number> {
+    const sums: Record<string, number> = { income: 0, expense: 0, saving: 0, debt: 0 };
+    for (const row of rows) {
+      if (row.type in sums) {
+        sums[row.type] += Number(row.amount) || 0;
+      }
+    }
+    return sums;
+  }
+
+  /** Builds the summary cards and top expense categories from the rows for the period shown. */
+  private buildSummary(): void {
+    const current = this.totals(this.monthRows);
+
+    // Compare with the month before, when it is in the same year (so not for January or All year)
+    const canCompare = this.selectedMonth >= 2;
+    const previous = canCompare
+      ? this.totals(this.allRows.filter((row) => this.monthOf(row) === this.selectedMonth - 1))
+      : null;
+    const previousName = canCompare ? this.months[this.selectedMonth - 2] : '';
+
+    const change = (key: string): string | null => {
+      if (!previous) return null;
+      const before = previous[key];
+      if (before === 0) return `None recorded in ${previousName}`;
+      const pct = Math.round(((current[key] - before) / before) * 100);
+      if (pct === 0) return `Same as ${previousName}`;
+      return pct > 0
+        ? `Up ${pct}% from ${previousName}`
+        : `Down ${Math.abs(pct)}% from ${previousName}`;
+    };
+
+    const countNote = (type: string): string => {
+      const n = this.monthRows.filter((row) => row.type === type).length;
+      return `${n} ${n === 1 ? 'transaction' : 'transactions'}`;
+    };
+
+    this.summaryCards = [
+      {
+        key: 'expense',
+        label: 'Expenses',
+        value: current['expense'],
+        tone: 'tone-expense',
+        note: change('expense') ?? countNote('expense'),
+      },
+      {
+        key: 'income',
+        label: 'Income',
+        value: current['income'],
+        tone: 'tone-income',
+        note: change('income') ?? countNote('income'),
+      },
+      {
+        key: 'saving',
+        label: 'Savings',
+        value: current['saving'],
+        tone: 'tone-savings',
+        note: change('saving') ?? countNote('saving'),
+      },
+      {
+        key: 'debt',
+        label: 'Debt',
+        value: current['debt'],
+        tone: 'tone-debt',
+        note: change('debt') ?? countNote('debt'),
+      },
+    ];
+
+    this.buildCategoryChart(current['expense']);
+  }
+
+  /** Groups the period's expenses by category, then by merchant inside each category. */
+  private buildCategoryChart(expenseTotal: number): void {
+    const MAX_SLICES = 7; // one color each; the rest are grouped as "Other"
+    const MAX_MERCHANTS = 8;
+
+    type Merchant = { name: string; amount: number; count: number };
+    type Group = { name: string; amount: number; merchants: Map<string, Merchant> };
+    const groups = new Map<string, Group>();
+    for (const row of this.monthRows) {
+      if (row.type !== 'expense') continue;
+      const amount = Number(row.amount) || 0;
+      const category = String(row.category ?? '').trim() || 'Uncategorized';
+      const group = groups.get(category) ?? { name: category, amount: 0, merchants: new Map() };
+      group.amount += amount;
+      // The same merchant in different capitals counts once
+      const merchant = String(row.merchant ?? '').trim() || 'No merchant';
+      const key = merchant.toLowerCase();
+      const entry = group.merchants.get(key) ?? { name: merchant, amount: 0, count: 0 };
+      entry.amount += amount;
+      entry.count += 1;
+      group.merchants.set(key, entry);
+      groups.set(category, group);
+    }
+
+    const sorted = [...groups.values()]
+      .filter((g) => g.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+    const named = sorted.length > MAX_SLICES + 1 ? sorted.slice(0, MAX_SLICES) : sorted;
+    const rest = sorted.slice(named.length);
+
+    const entries: {
+      name: string;
+      amount: number;
+      isOther: boolean;
+      folded: string[];
+      merchants: Merchant[];
+    }[] = named.map((g) => ({
+      name: g.name,
+      amount: g.amount,
+      isOther: false,
+      folded: [],
+      merchants: [...g.merchants.values()],
+    }));
+    if (rest.length) {
+      const merged = new Map<string, Merchant>();
+      for (const g of rest) {
+        for (const [key, m] of g.merchants) {
+          const entry = merged.get(key) ?? { name: m.name, amount: 0, count: 0 };
+          entry.amount += m.amount;
+          entry.count += m.count;
+          merged.set(key, entry);
+        }
+      }
+      entries.push({
+        name: 'Other',
+        amount: rest.reduce((sum, g) => sum + g.amount, 0),
+        isOther: true,
+        folded: rest.map((g) => g.name),
+        merchants: [...merged.values()],
+      });
+    }
+
+    const total = entries.reduce((sum, e) => sum + e.amount, 0);
+    this.expenseTotal = expenseTotal;
+    let start = 0;
+    this.slices = entries.map((e, index) => {
+      const fraction = total > 0 ? e.amount / total : 0;
+      const path = this.arcPath(start, start + fraction);
+      start += fraction;
+      const merchants = e.merchants.sort((a, b) => b.amount - a.amount);
+      const shown = merchants.slice(0, MAX_MERCHANTS);
+      const hidden = merchants.slice(MAX_MERCHANTS);
+      const biggest = shown.length ? shown[0].amount : 0;
+      return {
+        name: e.name,
+        amount: e.amount,
+        share: fraction * 100,
+        index,
+        isOther: e.isOther,
+        folded: e.folded,
+        path,
+        merchants: shown.map((m) => ({
+          ...m,
+          width: biggest > 0 ? Math.max(3, (m.amount / biggest) * 100) : 0,
+        })),
+        moreCount: hidden.length,
+        moreAmount: hidden.reduce((sum, m) => sum + m.amount, 0),
+      };
+    });
+
+    // Forget a selection that is not in this period
+    if (!this.slices.some((s) => s.name === this.pinnedName)) this.pinnedName = '';
+    this.hoveredName = '';
+  }
+
+  /** SVG outline of a donut slice between two positions (0 to 1) around the circle, starting at the top. */
+  private arcPath(from: number, to: number): string {
+    const cx = 100,
+      cy = 100,
+      outer = 92,
+      inner = 58;
+    const point = (fraction: number, radius: number): string => {
+      const angle = fraction * 2 * Math.PI - Math.PI / 2;
+      return `${(cx + radius * Math.cos(angle)).toFixed(2)} ${(cy + radius * Math.sin(angle)).toFixed(2)}`;
+    };
+    if (to - from >= 0.9999) {
+      // A full circle cannot be one arc, so draw two halves
+      return (
+        `M ${point(0, outer)} A ${outer} ${outer} 0 1 1 ${point(0.5, outer)} A ${outer} ${outer} 0 1 1 ${point(0, outer)} ` +
+        `M ${point(0, inner)} A ${inner} ${inner} 0 1 0 ${point(0.5, inner)} A ${inner} ${inner} 0 1 0 ${point(0, inner)} Z`
+      );
+    }
+    const large = to - from > 0.5 ? 1 : 0;
+    return (
+      `M ${point(from, outer)} A ${outer} ${outer} 0 ${large} 1 ${point(to, outer)} ` +
+      `L ${point(to, inner)} A ${inner} ${inner} 0 ${large} 0 ${point(from, inner)} Z`
+    );
+  }
+
+  /** The slice named in the panel: the one under the pointer, else the selected one, else the biggest. */
+  get activeSlice(): CategorySlice | undefined {
+    const name = this.hoveredName || this.pinnedName;
+    return this.slices.find((s) => s.name === name) ?? this.slices[0];
+  }
+
+  /** True while a slice is hovered or selected, so the others can be dimmed. */
+  get hasFocus(): boolean {
+    return !!(this.hoveredName || this.pinnedName);
+  }
+
+  hoverSlice(name: string): void {
+    this.hoveredName = name;
+  }
+
+  /** Selecting a slice keeps its merchants on screen; selecting it again lets go. */
+  pinSlice(name: string): void {
+    this.pinnedName = this.pinnedName === name ? '' : name;
+  }
+
+  shareLabel(share: number): string {
+    return share > 0 && share < 1 ? '<1%' : `${Math.round(share)}%`;
+  }
+
+  sliceLabel(s: CategorySlice): string {
+    return `${s.name}: ${this.usd(s.amount)}, ${this.shareLabel(s.share)} of expenses`;
+  }
+
+  onGridReady(event: GridReadyEvent): void {
+    this.gridApi = event.api;
+  }
+
+  /** Downloads what the list shows (the chosen month or year, after any filter or search) as a CSV file. */
+  exportCsv(): void {
+    if (!this.gridApi || !this.rowData.length) return;
+    const stamp =
+      this.selectedMonth === 0
+        ? String(this.selectedYear)
+        : `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}`;
+    this.gridApi.exportDataAsCsv({
+      fileName: `transactions-${stamp}.csv`,
+      columnKeys: ['date', 'type', 'category', 'merchant', 'amount', 'details'],
+      processCellCallback: (params): any => this.csvCell(params),
+    });
+  }
+
+  /** Plain values for the file: ISO dates, numbers without $ or commas, and text that spreadsheets cannot run as formulas. */
+  private csvCell(params: ProcessCellForExportParams): string | number {
+    const field = params.column.getColId();
+    const data = params.node?.data;
+    if (field === 'amount') return Number(data?.amount) || 0;
+    if (field === 'date') {
+      const [month, day, year] = String(data?.date ?? '').split('-');
+      return year ? `${year}-${month}-${day}` : '';
+    }
+    const text = params.value == null ? '' : String(params.value);
+    return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  }
+
+  loadTransactions(): void {
+    this.transSrv.get_yearly_transactions({ year: this.selectedYear }).subscribe({
+      next: (data) => {
+        this.allRows = Array.isArray(data) ? data : [];
+        this.applyMonthFilter();
+        this.rowsLoaded = true;
+      },
+      error: () => {
+        // The API answers with an error when a year has no transactions yet
+        this.allRows = [];
+        this.applyMonthFilter();
+        this.rowsLoaded = true;
+      },
+    });
+  }
 }

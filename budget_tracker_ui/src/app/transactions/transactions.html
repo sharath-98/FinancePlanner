@@ -1,114 +1,276 @@
-<div class="main-container">
-    <div class="left-container">
-        <div class="form-container">
-            <mat-card class="form-card">
-                <h3 style="color: #3f51b5; margin-left: 20px;">New Expense</h3>
-                <div class="form-grid">
-                    <form [formGroup]="transactionForm" (ngSubmit)="onSubmit()">
-                        <div style="width: 100%; justify-content: center; display: flex">
-                            <mat-form-field appearance="outline" style="width: 80%;">
-                                <mat-label>Type</mat-label>
-                                <mat-select formControlName="type" required>
-                                    <mat-option *ngFor="let t of types" [value]="t">{{t}}</mat-option>
-                                </mat-select>
-                            </mat-form-field>
-                        </div>
-                        <div style="width: 100%; justify-content: center; display: flex">
-                            <mat-form-field appearance="outline" style="width: 80%;">
-                                <mat-label>Category</mat-label>
-                                <input matInput type="text" formControlName="category" [matAutocomplete]="auto">
-                                <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayCategory" (optionSelected)="OnCategorySelection()">
-                                    <mat-option *ngFor="let option of filteredCategories | async" [value]="option">
-                                        {{ option.name }}
-                                    </mat-option>
-                                </mat-autocomplete>
-                            </mat-form-field>
-                        </div>
-                        <div style="width: 100%; justify-content: center; display: flex;">
-                            <mat-form-field appearance="outline" style="width: 80%;">
-                                <mat-label>Merchant</mat-label>
-                                <input matInput type="text" formControlName="merchant" required [matAutocomplete]="autoMerchant">
-                                <span matSuffix mat-icon-button >
-                                    <mat-icon *ngIf="isNewMerchantEntry" (click)="addNewMerchant()" style="color: #3f51b5; background: white; margin-right: 5px; cursor:pointer">add_circle</mat-icon>
-                                </span>
-                                <mat-autocomplete #autoMerchant="matAutocomplete" [displayWith]="displayMerchants">
-                                    <mat-option *ngFor="let option of filteredMerchants" [value]="option">
-                                        {{ option }}
-                                    </mat-option>
-                                </mat-autocomplete>
-                            </mat-form-field>
-                        </div>
-
-
-                        <div style="width: 100%; justify-content: center; display: flex">
-                            <mat-form-field appearance="outline" style="width: 80%;">
-                                <mat-label>Date</mat-label>
-                                <input matInput [matDatepicker]="picker" formControlName="date" required>
-                                <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-                                <mat-datepicker #picker></mat-datepicker>
-                            </mat-form-field>
-                        </div>
-
-                        <div style="width: 100%; justify-content: center; display: flex">
-                            <mat-form-field appearance="outline" style="width: 80%;">
-                                <mat-label>Amount</mat-label>
-                                <input matInput type="number" formControlName="amount" required>
-                            </mat-form-field>
-                        </div>
-                        
-                        <div style="width: 100%; justify-content: center; display: flex">
-                            <mat-form-field appearance="outline" style="width: 80%;">
-                                <mat-label>Paid By</mat-label>
-                                <mat-select formControlName="paidby" required>
-                                    <mat-option *ngFor="let t of users" [value]="t.id">{{t.name}}</mat-option>
-                                </mat-select>
-                            </mat-form-field>
-                        </div>
-
-
-                        <div style="width: 100%; justify-content: center; display: flex">
-                            <mat-form-field appearance="outline" style="width: 80%;">
-                                <mat-label>Currency</mat-label>
-                                <mat-select formControlName="currency" required>
-                                    <mat-option *ngFor="let curr of currencies" [value]="curr">{{curr}}</mat-option>
-                                </mat-select>
-                            </mat-form-field>
-                        </div>
-
-                        <div style="width: 100%; justify-content: center; display: flex">
-                            <mat-form-field appearance="outline" class="details-field" style="width: 80%;">
-                                <mat-label>Details</mat-label>
-                                <textarea matInput formControlName="details" rows="2"></textarea>
-                            </mat-form-field>
-                        </div>
-
-
-                        <div class="submit-btn">
-                            <button mat-button style="padding: 10px; background: rgb(3, 149, 3)">Reset</button>
-                            <button mat-button style="padding: 10px; width: 100px" type="submit"
-                                [disabled]="transactionForm.invalid">Submit</button>
-                        </div>
-
-                    </form>
-                </div>
-            </mat-card>
+<!-- FILE: src/app/transactions/transactions.html  (REPLACE existing file) -->
+<div class="page">
+    <div class="page-header">
+        <div>
+            <h1>Transactions</h1>
+            <p class="page-sub">Record what you earn, spend, save and pay toward debt.</p>
         </div>
-        <div class="analysis-container">
-
+        <div class="page-actions">
+            <button type="button" class="btn btn-secondary" (click)="openEntryFinder()">
+                <mat-icon aria-hidden="true">search</mat-icon>
+                Find entry
+            </button>
+            <button type="button" class="btn btn-secondary" (click)="openCategories()">
+                <mat-icon aria-hidden="true">category</mat-icon>
+                Categories
+            </button>
         </div>
     </div>
-    <div class="right-container">
-        <mat-form-field appearance="outline" style="width: 200px;">
-            <mat-label>Year</mat-label>
-            <mat-select [(value)]="selectedYear" (selectionChange)="onYearChange($event)">
-                <mat-option *ngFor="let year of years" [value]="year">
-                    {{ year }}
-                </mat-option>
-            </mat-select>
-        </mat-form-field>
-        <ag-grid-angular class="ag-theme-alpine custom-expense-theme" style="width: 'fit-content'; height: 80vh;"
-            [rowData]="expenseRowData" [columnDefs]="colDefs" [defaultColDef]="defaultColDef"
-            [autoSizeStrategy]="autoSizeStrategy" (gridReady)="onGridReady($event)"
-            (cellValueChanged)="onCellValueChanged($event)" />
+
+    <div class="layout">
+        <!-- New transaction -->
+        <section class="card form-card" aria-labelledby="form-title">
+            <div class="form-head">
+                <h2 class="card-title" id="form-title">New transaction</h2>
+                <button type="button" class="btn btn-ghost btn-sm form-toggle" (click)="formOpen = !formOpen"
+                    [attr.aria-expanded]="formOpen" aria-controls="txn-form">
+                    <mat-icon aria-hidden="true">{{ formOpen ? 'expand_less' : 'add' }}</mat-icon>
+                    {{ formOpen ? 'Hide form' : 'Add transaction' }}
+                </button>
+            </div>
+
+            <form id="txn-form" class="txn-form" [class.is-collapsed]="!formOpen" [formGroup]="transactionForm"
+                (ngSubmit)="onSubmit()">
+                <div class="fields">
+                    <mat-form-field appearance="outline" class="span-2">
+                        <mat-label>Type</mat-label>
+                        <mat-select formControlName="type" required>
+                            <mat-option *ngFor="let t of types" [value]="t">{{ typeLabel(t) }}</mat-option>
+                        </mat-select>
+                        <mat-error>Choose a type.</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="span-2">
+                        <mat-label>Category</mat-label>
+                        <input matInput type="text" formControlName="category" [matAutocomplete]="autoCategory"
+                            required />
+                        <mat-autocomplete #autoCategory="matAutocomplete" [displayWith]="displayCategory"
+                            (optionSelected)="onCategorySelected()">
+                            <mat-option *ngFor="let option of filteredCategories | async" [value]="option">
+                                {{ option.name.trim() }}
+                            </mat-option>
+                        </mat-autocomplete>
+                        <mat-error>Pick a category from the list.</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="span-2">
+                        <mat-label>Merchant</mat-label>
+                        <input matInput type="text" formControlName="merchant" [matAutocomplete]="autoMerchant"
+                            required />
+                        <button *ngIf="isNewMerchantEntry" matSuffix type="button" class="suffix-btn"
+                            (click)="addNewMerchant()" aria-label="Save this merchant for the category"
+                            title="Save this merchant for the category">
+                            <mat-icon aria-hidden="true">add_circle</mat-icon>
+                        </button>
+                        <mat-autocomplete #autoMerchant="matAutocomplete">
+                            <mat-option *ngFor="let option of filteredMerchants" [value]="option">{{ option
+                                }}</mat-option>
+                        </mat-autocomplete>
+                        <mat-hint *ngIf="isNewMerchantEntry">New merchant. Select + to save it for this
+                            category.</mat-hint>
+                        <mat-error>Enter a merchant.</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline">
+                        <mat-label>Amount</mat-label>
+                        <span matTextPrefix>$&nbsp;</span>
+                        <input matInput type="number" inputmode="decimal" step="0.01" min="0" formControlName="amount"
+                            required />
+                        <mat-error>Enter an amount of at least 0.01.</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline">
+                        <mat-label>Date</mat-label>
+                        <input matInput [matDatepicker]="picker" formControlName="date" required />
+                        <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+                        <mat-datepicker #picker></mat-datepicker>
+                        <mat-error>Enter a valid date.</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline">
+                        <mat-label>Paid by</mat-label>
+                        <mat-select formControlName="paidby" required>
+                            <mat-option *ngFor="let user of users" [value]="user.id">{{ user.name }}</mat-option>
+                        </mat-select>
+                        <mat-error>Choose who paid.</mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline">
+                        <mat-label>Currency</mat-label>
+                        <mat-select formControlName="currency" required>
+                            <mat-option *ngFor="let curr of currencies" [value]="curr">{{ curr }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="span-2">
+                        <mat-label>Details</mat-label>
+                        <textarea matInput formControlName="details" rows="2"></textarea>
+                    </mat-form-field>
+                </div>
+
+                <div class="actions">
+                    <button type="button" class="btn btn-secondary" (click)="onReset()">Reset</button>
+                    <button type="submit" class="btn" [disabled]="transactionForm.invalid || saving">Save
+                        transaction</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Summary, top categories and the list -->
+        <div class="main-col">
+            <div class="strip" *ngIf="rowsLoaded">
+                <p class="card-sub strip-caption">{{ periodLabel }} totals, from your transactions</p>
+                <div class="kpi-grid" role="group" [attr.aria-label]="'Totals for ' + periodLabel">
+                    <article *ngFor="let k of summaryCards" class="card accent kpi" [ngClass]="k.tone">
+                        <p class="kpi-label">{{ k.label }}</p>
+                        <p class="kpi-value num">{{ usd(k.value) }}</p>
+                        <p class="kpi-note">{{ k.note }}</p>
+                    </article>
+                </div>
+            </div>
+
+            <!-- Spending by category, with the merchants behind each category -->
+            <section class="card accent tone-expense spend-card" *ngIf="rowsLoaded && slices.length"
+                aria-labelledby="spend-title">
+                <h2 class="card-title" id="spend-title">Spending by category</h2>
+                <p class="card-sub">{{ periodLabel }}. Point at or select a category to see its merchants.</p>
+
+                <div class="spend-layout" (mouseleave)="hoverSlice('')">
+                    <div class="spend-left">
+                        <div class="donut-wrap">
+                            <svg class="donut" viewBox="0 0 200 200" role="group"
+                                [attr.aria-label]="'Expenses by category, ' + periodLabel + ', total ' + usd(expenseTotal)">
+                                <path *ngFor="let s of slices" class="slice" [attr.d]="s.path"
+                                    [style.--sc]="'var(--c' + (s.index + 1) + ')'"
+                                    [class.is-dim]="hasFocus && activeSlice?.name !== s.name"
+                                    [class.is-active]="activeSlice?.name === s.name && hasFocus" tabindex="0"
+                                    role="button" [attr.aria-pressed]="pinnedName === s.name"
+                                    [attr.aria-label]="sliceLabel(s)" (mouseenter)="hoverSlice(s.name)"
+                                    (focus)="hoverSlice(s.name)" (blur)="hoverSlice('')" (click)="pinSlice(s.name)"
+                                    (keydown.enter)="pinSlice(s.name)"
+                                    (keydown.space)="pinSlice(s.name); $event.preventDefault()">
+                                    <title>{{ sliceLabel(s) }}</title>
+                                </path>
+                            </svg>
+                            <div class="donut-center" aria-hidden="true">
+                                <span class="donut-center-label">{{ hasFocus ? activeSlice?.name : 'Total spent'
+                                    }}</span>
+                                <span class="donut-center-value num">{{ usd(hasFocus ? (activeSlice?.amount ?? 0) :
+                                    expenseTotal) }}</span>
+                                <span class="donut-center-sub" *ngIf="hasFocus && activeSlice">{{
+                                    shareLabel(activeSlice.share) }} of expenses</span>
+                            </div>
+                        </div>
+
+                        <ul class="legend">
+                            <li *ngFor="let s of slices">
+                                <button type="button" class="legend-row"
+                                    [class.is-active]="activeSlice?.name === s.name && hasFocus"
+                                    [attr.aria-pressed]="pinnedName === s.name" (mouseenter)="hoverSlice(s.name)"
+                                    (focus)="hoverSlice(s.name)" (blur)="hoverSlice('')" (click)="pinSlice(s.name)">
+                                    <span class="swatch" [style.--sc]="'var(--c' + (s.index + 1) + ')'"
+                                        aria-hidden="true"></span>
+                                    <span class="legend-name">{{ s.name }}</span>
+                                    <span class="legend-amount num">{{ usd(s.amount) }} <small>{{ shareLabel(s.share)
+                                            }}</small></span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="merchant-panel" *ngIf="activeSlice as a" aria-live="polite">
+                        <div class="merchant-head">
+                            <span class="swatch" [style.--sc]="'var(--c' + (a.index + 1) + ')'"
+                                aria-hidden="true"></span>
+                            <div>
+                                <h3 class="merchant-title">{{ a.name }}</h3>
+                                <p class="merchant-sub num">{{ usd(a.amount) }} · {{ shareLabel(a.share) }} of expenses
+                                </p>
+                            </div>
+                        </div>
+
+                        <p class="merchant-note" *ngIf="a.isOther">Includes {{ a.folded.join(', ') }}.</p>
+
+                        <ul class="merchant-list">
+                            <li *ngFor="let m of a.merchants" class="merchant-row">
+                                <span class="merchant-name">{{ m.name }}</span>
+                                <span class="merchant-amount num">{{ usd(m.amount) }} <small>{{ m.count
+                                        }}×</small></span>
+                                <span class="merchant-bar" aria-hidden="true"><span class="merchant-fill"
+                                        [style.--sc]="'var(--c' + (a.index + 1) + ')'"
+                                        [style.width.%]="m.width"></span></span>
+                            </li>
+                            <li *ngIf="a.moreCount" class="merchant-row merchant-more">
+                                <span class="merchant-name">{{ a.moreCount }} more {{ a.moreCount === 1 ? 'merchant' :
+                                    'merchants' }}</span>
+                                <span class="merchant-amount num">{{ usd(a.moreAmount) }}</span>
+                            </li>
+                        </ul>
+
+                        <button *ngIf="!a.isOther" type="button" class="btn btn-secondary merchant-filter"
+                            (click)="toggleCategory(a.name)">
+                            {{ selectedCategory === a.name ? 'Show all transactions' : 'Show only these in the list' }}
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transaction list -->
+            <section class="card grid-card" aria-labelledby="list-title">
+                <div class="grid-head">
+                    <div>
+                        <h2 class="card-title" id="list-title">{{ periodLabel }} transactions</h2>
+                        <p class="card-sub">{{ rowData.length }} recorded</p>
+                        <button *ngIf="selectedCategory" type="button" class="filter-chip" (click)="clearCategory()">
+                            {{ selectedCategory }}
+                            <mat-icon aria-hidden="true">close</mat-icon>
+                            <span class="visually-hidden">Clear category filter</span>
+                        </button>
+                    </div>
+
+                    <div class="grid-tools">
+                        <button type="button" class="btn btn-secondary export-btn" (click)="exportCsv()"
+                            [disabled]="!rowData.length">
+                            <mat-icon aria-hidden="true">download</mat-icon>
+                            Export CSV
+                        </button>
+
+                        <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
+                            <mat-label>Search</mat-label>
+                            <mat-icon matIconPrefix aria-hidden="true">search</mat-icon>
+                            <input matInput type="search" [(ngModel)]="search" />
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="month-field" subscriptSizing="dynamic">
+                            <mat-label>Month</mat-label>
+                            <mat-select [value]="selectedMonth" (selectionChange)="onMonthChange($event)">
+                                <mat-option [value]="0">All year</mat-option>
+                                <mat-option *ngFor="let m of months; let i = index" [value]="i + 1">{{ m }}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="year-field" subscriptSizing="dynamic">
+                            <mat-label>Year</mat-label>
+                            <mat-select [value]="selectedYear" (selectionChange)="onYearChange($event)">
+                                <mat-option *ngFor="let year of years" [value]="year">{{ year }}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                </div>
+
+                <ng-container *ngIf="rowsLoaded">
+                    <ag-grid-angular *ngIf="rowData.length; else emptyRows" class="grid" [theme]="theme"
+                        [rowData]="rowData" [columnDefs]="colDefs" [defaultColDef]="defaultColDef"
+                        [quickFilterText]="search" (cellClicked)="onCellClicked($event)"
+                        (gridReady)="onGridReady($event)" />
+                    <ng-template #emptyRows>
+                        <div class="empty-state">
+                            <strong>No transactions in {{ periodLabel }}</strong>
+                            <span>Save one with the form, or pick another month.</span>
+                        </div>
+                    </ng-template>
+                </ng-container>
+            </section>
+        </div>
     </div>
 </div>

@@ -1,0 +1,33 @@
+/* FILE: src/app/transactions/confirm-dialog.css  (NEW file) */
+.message {
+    margin: 0 0 var(--space-3);
+    line-height: 1.5;
+}
+
+.details {
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    list-style: none;
+    display: grid;
+    gap: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: var(--fs-sm);
+}
+
+mat-dialog-actions {
+    gap: 8px;
+    padding: 0 24px 20px;
+}
+
+.btn.danger {
+    background: var(--negative);
+    border-color: var(--negative);
+    color: #fff;
+}
+
+.btn.danger:hover:not(:disabled) {
+    filter: brightness(0.92);
+    background: var(--negative);
+}

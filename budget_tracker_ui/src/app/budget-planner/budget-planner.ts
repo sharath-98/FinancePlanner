@@ -1,9 +1,23 @@
+// FILE: src/app/budget-planner/budget-planner.ts  (REPLACE existing file)
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { inputStyleBordered, type ColDef, type GridApi, type GridReadyEvent, type ValueParserParams } from "ag-grid-community";
+import {
+  type CellClassParams,
+  type CellStyle,
+  type ColDef,
+  type GridApi,
+  type GridReadyEvent,
+  type RowClassParams,
+  type ValueParserParams,
+} from 'ag-grid-community';
+import { Observable, catchError, forkJoin, of } from 'rxjs';
 import { BudgetPlannerService } from './budget-planner-service';
 import { MatAccordion } from '@angular/material/expansion';
 import { ToastrService } from 'ngx-toastr';
+import { MatDialog } from '@angular/material/dialog';
+import { ConfirmReplaceDialog } from './confirm-replace-dialog';
+import { gridTheme, moneyCellClass, moneyFormatter } from '../shared/grid-theme';
+import { formatUsd } from '../shared/design-tokens';
 
 @Component({
   selector: 'app-budget-planner',
@@ -13,13 +27,16 @@ import { ToastrService } from 'ngx-toastr';
 })
 export class BudgetPlanner implements OnInit {
   @ViewChild(MatAccordion) accordion!: MatAccordion;
+
+  /* Income starts open; the other sections open on demand (or with "Expand all") */
   incomePanelOpenState = true;
   expensePanelOpenState = false;
-  savingsPanelOpenState = true;
-  debtPanelOpenState = true;
+  savingsPanelOpenState = false;
+  debtPanelOpenState = false;
 
   years: number[] = [];
   selectedYear?: number;
+  usd = formatUsd;
 
   allocatedGridApi!: GridApi<any>;
   incomeGridApi!: GridApi<any>;
@@ -39,25 +56,57 @@ export class BudgetPlanner implements OnInit {
   rowSavingsData: any = [];
   rowDebtData: any = [];
 
+  /** Year total of what is left after expenses, savings and debt (shown in the banner). */
+  unallocatedTotal = 0;
+
+  /* One shared grid theme, tinted per money category (see shared/grid-theme.ts) */
+  incomeTheme = gridTheme('income');
+  expenseTheme = gridTheme('expense');
+  savingsTheme = gridTheme('savings');
+  debtTheme = gridTheme('debt');
+  allocatedTheme = gridTheme('neutral');
+
+  /** Grids grow to fit their rows, so there are no fixed heights to break on small screens. */
+  readonly domLayout = 'autoHeight' as const;
+
+  /** Marks the Total row so styles.scss (.total-row) can emphasize it. */
+  getRowClass = (params: RowClassParams): string | undefined => {
+    const row = params.data;
+    return row && Object.values(row).includes('Total') ? 'total-row' : undefined;
+  };
+
+  /** Column widths are chosen once, when the page loads. */
+  private isPhone = window.matchMedia('(max-width: 720px)').matches;
+  /** Fixed width of the pinned label column (category names). */
+  private labelWidth = this.isPhone ? 150 : 210;
+
   months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  common_colDefs = [
-    { field: 'Jan', headerName: 'Jan', valueParser: this.numberParser },
-    { field: 'Feb', headerName: 'Feb', valueParser: this.numberParser },
-    { field: 'Mar', headerName: 'Mar', valueParser: this.numberParser },
-    { field: 'Apr', headerName: 'Apr', valueParser: this.numberParser },
-    { field: 'May', headerName: 'May', valueParser: this.numberParser },
-    { field: 'Jun', headerName: 'Jun', valueParser: this.numberParser },
-    { field: 'Jul', headerName: 'Jul', valueParser: this.numberParser },
-    { field: 'Aug', headerName: 'Aug', valueParser: this.numberParser },
-    { field: 'Sep', headerName: 'Sep', valueParser: this.numberParser },
-    { field: 'Oct', headerName: 'Oct', valueParser: this.numberParser },
-    { field: 'Nov', headerName: 'Nov', valueParser: this.numberParser },
-    { field: 'Dec', headerName: 'Dec', valueParser: this.numberParser },
+
+  private monthCol(month: string): ColDef {
+    return {
+      field: month,
+      headerName: month,
+      valueParser: this.numberParser,
+      valueFormatter: moneyFormatter,
+      cellClass: moneyCellClass,
+      type: 'rightAligned',
+      // Never narrower than 100px; any spare width is shared between the month columns
+      minWidth: 100,
+      flex: 1,
+    };
+  }
+
+  common_colDefs: ColDef[] = [
+    ...this.months.map((m) => this.monthCol(m)),
     {
       field: 'Total',
       headerName: 'Total',
       editable: false,
+      type: 'rightAligned',
+      minWidth: 120,
+      flex: 1,
       cellStyle: { fontWeight: 'bold' },
+      valueFormatter: moneyFormatter,
       valueGetter: (params: any) => {
         const cols = this.months; // your month columns
         return cols.reduce((a, c) => a + (+params.data[c] || 0), 0);
@@ -65,21 +114,98 @@ export class BudgetPlanner implements OnInit {
     },
   ];
 
-  colDefs = [{ field: 'Income', headerName: 'Income', editable: false }, ...this.common_colDefs];
-  colExpenseDefs = [
-    { field: 'Expenses', headerName: 'Expenses', editable: false },
+  /* The label column stays pinned on the left so category names remain visible when scrolling months */
+  colDefs: ColDef[] = [
+    {
+      field: 'Income',
+      headerName: 'Income',
+      editable: false,
+      pinned: 'left',
+      lockPinned: true,
+      width: this.labelWidth,
+    },
     ...this.common_colDefs,
   ];
-  colSavingsDefs = [
-    { field: 'Savings', headerName: 'Savings', editable: false },
+  colExpenseDefs: ColDef[] = [
+    {
+      field: 'Expenses',
+      headerName: 'Expenses',
+      editable: false,
+      pinned: 'left',
+      lockPinned: true,
+      width: this.labelWidth,
+    },
     ...this.common_colDefs,
   ];
-  colDebtsDefs = [{ field: 'Debts', headerName: 'Debts', editable: false }, ...this.common_colDefs];
+  colSavingsDefs: ColDef[] = [
+    {
+      field: 'Savings',
+      headerName: 'Savings',
+      editable: false,
+      pinned: 'left',
+      lockPinned: true,
+      width: this.labelWidth,
+    },
+    ...this.common_colDefs,
+  ];
+  colDebtsDefs: ColDef[] = [
+    {
+      field: 'Debts',
+      headerName: 'Debts',
+      editable: false,
+      pinned: 'left',
+      lockPinned: true,
+      width: this.labelWidth,
+    },
+    ...this.common_colDefs,
+  ];
+
+  /** Read-only monthly view; negative months turn red. */
+  allocatedColDefs: ColDef[] = [
+    {
+      field: 'label',
+      headerName: '',
+      editable: false,
+      pinned: 'left',
+      lockPinned: true,
+      width: this.labelWidth,
+    },
+    ...this.months.map(
+      (m): ColDef => ({
+        field: m,
+        headerName: m,
+        type: 'rightAligned',
+        minWidth: 100,
+        flex: 1,
+        valueFormatter: moneyFormatter,
+        cellStyle: (p: CellClassParams): CellStyle | null =>
+          Number(p.value) < 0 ? { color: 'var(--negative)' } : null,
+      }),
+    ),
+    {
+      field: 'Total',
+      headerName: 'Total',
+      type: 'rightAligned',
+      minWidth: 120,
+      flex: 1,
+      valueFormatter: moneyFormatter,
+      cellStyle: (p: CellClassParams): CellStyle =>
+        Number(p.value) < 0
+          ? { color: 'var(--negative)', fontWeight: 'bold' }
+          : { fontWeight: 'bold' },
+    },
+  ];
 
   defaultColDef: ColDef = {
     filter: true, // Enable filtering on all columns
     editable: true, // Enable editing on all columns
     sortable: true,
+  };
+
+  readOnlyColDef: ColDef = {
+    editable: false,
+    filter: false,
+    sortable: false,
   };
 
   numberParser(params: ValueParserParams): number | string {
@@ -123,57 +249,98 @@ export class BudgetPlanner implements OnInit {
     }
   }
 
+  /** Copies the Total row (without its label) so the banner and section headers can read it. */
   calGrandTotal(data: any, category: string) {
+    const last = data?.length ? data[data.length - 1] : {};
+    const labelKey = category === 'Expense' ? 'Expenses' : category;
+    const totals = Object.fromEntries(Object.entries(last).filter(([key]) => key !== labelKey));
+
     if (category == 'Income') {
-      this.grandTotalRow = data[data.length - 1];
-      this.grandTotalRow = Object.fromEntries(
-        Object.entries(this.grandTotalRow).filter(([key, value]) => key !== 'Income')
-      );
+      this.grandTotalRow = totals;
     } else if (category == 'Expense') {
-      this.grandExpenseTotalRow = data[data.length - 1];
-      this.grandExpenseTotalRow = Object.fromEntries(
-        Object.entries(this.grandExpenseTotalRow).filter(([key, value]) => key !== 'Expenses')
-      );
+      this.grandExpenseTotalRow = totals;
     } else if (category == 'Savings') {
-      this.grandSavingsTotalRow = data[data.length - 1];
-      this.grandSavingsTotalRow = Object.fromEntries(
-        Object.entries(this.grandSavingsTotalRow).filter(([key, value]) => key !== 'Savings')
-      );
+      this.grandSavingsTotalRow = totals;
     } else if (category == 'Debts') {
-      this.grandDebtTotalRow = data[data.length - 1];
-      this.grandDebtTotalRow = Object.fromEntries(
-        Object.entries(this.grandDebtTotalRow).filter(([key, value]) => key !== 'Debts')
-      );
+      this.grandDebtTotalRow = totals;
     }
   }
 
+  /** Income minus expenses, savings and debt, per month and for the year. */
   getUnallocated() {
-    let result: any = {};
-    for (const key in this.grandTotalRow) {
-      result[key] = (
-        this.grandTotalRow[key] -
-        (this.grandExpenseTotalRow[key] +
-          this.grandSavingsTotalRow[key] +
-          this.grandDebtTotalRow[key])
-      ).toFixed(2);
+    const num = (row: any, key: string) => Number(row?.[key]) || 0;
+    const row: any = { label: 'Unallocated' };
+    let yearTotal = 0;
+
+    for (const month of this.months) {
+      const value =
+        num(this.grandTotalRow, month) -
+        (num(this.grandExpenseTotalRow, month) +
+          num(this.grandSavingsTotalRow, month) +
+          num(this.grandDebtTotalRow, month));
+      row[month] = Math.round(value * 100) / 100;
+      yearTotal += row[month];
     }
-    this.grandAllocatedRow = [result];
-    this.allocatedRowData = [result];
-    this.allocatedGridApi.refreshCells({ force: true });
+    row['Total'] = Math.round(yearTotal * 100) / 100;
+
+    this.grandAllocatedRow = [row];
+    this.allocatedRowData = [row];
+    this.unallocatedTotal = row['Total'];
   }
 
   onCellValueChanged(event: any, category: any) {
     const colId = event.colDef.field;
-    let payload = {
+    if (event.newValue === event.oldValue) {
+      return;
+    }
+    const payload = {
       data: {
         month: colId,
         year: this.selectedYear,
         type: category,
         amount: event.data[colId],
         category: event.data[category],
-      }
+      },
     };
 
+    // Ask the API what this month already holds. If transactions are logged there, confirm first.
+    const { amount, ...cell } = payload.data;
+    this.bdjSrv.get_month_activity({ data: cell }).subscribe({
+      next: (activity) => {
+        if (Number(activity?.transaction_count) > 0) {
+          this.dialog
+            .open(ConfirmReplaceDialog, {
+              width: '420px',
+              maxWidth: '92vw',
+              data: {
+                category: payload.data.category,
+                month: colId,
+                year: this.selectedYear,
+                transactionCount: Number(activity.transaction_count),
+                transactionTotal: Number(activity.transaction_total),
+                plannerAmount: Number(activity.planner_amount),
+                newAmount: Number(amount),
+              },
+            })
+            .afterClosed()
+            .subscribe((confirmed) => {
+              if (confirmed) {
+                this.applyEdit(payload, colId, category);
+              } else {
+                this.getInitialGrids(); // put the saved number back in the cell
+              }
+            });
+        } else {
+          this.applyEdit(payload, colId, category);
+        }
+      },
+      // If the check itself fails, do not block the edit; the save below reports any real problem.
+      error: () => this.applyEdit(payload, colId, category),
+    });
+  }
+
+  /** Updates the totals on screen and saves the typed amount. */
+  private applyEdit(payload: any, colId: string, category: any) {
     if (category == 'Income') {
       this.calculateColTotals(this.rowData, colId);
       this.calGrandTotal(this.rowData, 'Income');
@@ -193,38 +360,23 @@ export class BudgetPlanner implements OnInit {
     }
     this.getUnallocated();
 
-    this.bdjSrv.update_src_data(payload).subscribe((data) => {
-      this.getInitialGrids();
+    this.bdjSrv.update_src_data(payload).subscribe({
+      next: () => this.getInitialGrids(),
+      error: () => {
+        // The API answers with a real error when a save fails; show it and reload the saved numbers
+        this.toastr.error(
+          'Could not save that change. Check that the API is running and try again.',
+        );
+        this.getInitialGrids();
+      },
     });
   }
-
-  autoSizeStrategy: any = {
-    type: 'fitGridWidth',
-    defaultMinWidth: 70,
-    columnLimits: [
-      {
-        colId: 'Income',
-        minWidth: 250,
-      },
-      {
-        colId: 'Expenses',
-        minWidth: 250,
-      },
-      {
-        colId: 'Savings',
-        minWidth: 250,
-      },
-      {
-        colId: 'Debts',
-        minWidth: 250,
-      },
-    ],
-  };
 
   constructor(
     private http: HttpClient,
     private bdjSrv: BudgetPlannerService,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
@@ -236,79 +388,38 @@ export class BudgetPlanner implements OnInit {
     this.getInitialGrids();
   }
 
+  /** Loads all four tables together, so the Unallocated banner is complete as soon as it appears. */
   getInitialGrids() {
-    this.bdjSrv.get_monthly_income({ year: this.selectedYear }).subscribe(
-      (data) => {
-        this.rowData = data;
-        this.calGrandTotal(data, 'Income');
-      },
-      (error) => {
-        this.rowData = [];
-        this.toastr.error('Error in retrieving income records.');
-      }
-    );
+    const year = { year: this.selectedYear };
+    const load = (request: Observable<any>, label: string) =>
+      request.pipe(
+        catchError(() => {
+          this.toastr.error(`Error in retrieving ${label} records.`);
+          return of(null);
+        }),
+      );
 
-    this.bdjSrv.get_monthly_expenses({ year: this.selectedYear }).subscribe(
-      (data) => {
-        this.rowExpenseData = data;
-        this.calGrandTotal(data, 'Expense');
-      },
-      (error) => {
-        this.rowExpenseData = [];
-        this.toastr.error('Error in retrieving expense records.');
-      }
-    );
+    forkJoin({
+      income: load(this.bdjSrv.get_monthly_income(year), 'income'),
+      expenses: load(this.bdjSrv.get_monthly_expenses(year), 'expense'),
+      savings: load(this.bdjSrv.get_monthly_savings(year), 'savings'),
+      debts: load(this.bdjSrv.get_monthly_debts(year), 'debt'),
+    }).subscribe(({ income, expenses, savings, debts }) => {
+      this.rowData = Array.isArray(income) ? income : [];
+      this.rowExpenseData = Array.isArray(expenses) ? expenses : [];
+      this.rowSavingsData = Array.isArray(savings) ? savings : [];
+      this.rowDebtData = Array.isArray(debts) ? debts : [];
 
-    this.bdjSrv.get_monthly_savings({ year: this.selectedYear }).subscribe(
-      (data) => {
-        this.rowSavingsData = data;
-        this.calGrandTotal(data, 'Savings');
-      },
-      (error) => {
-        this.rowSavingsData = [];
-        this.toastr.error('Error in retrieving savings records.');
-      }
-    );
-
-    this.bdjSrv.get_monthly_debts({ year: this.selectedYear }).subscribe(
-      (data) => {
-        this.rowDebtData = data;
-        this.calGrandTotal(data, 'Debts');
-      },
-      (error) => {
-        this.rowSavingsData = [];
-        this.toastr.error('Error in retrieving debt records.');
-      }
-    );
+      this.calGrandTotal(this.rowData, 'Income');
+      this.calGrandTotal(this.rowExpenseData, 'Expense');
+      this.calGrandTotal(this.rowSavingsData, 'Savings');
+      this.calGrandTotal(this.rowDebtData, 'Debts');
+      this.getUnallocated();
+    });
   }
 
   onYearChange(event: any) {
     this.selectedYear = event.value;
     this.getInitialGrids();
-  }
-  addNewRowBeforeTotal() {
-    if (!this.rowData || this.rowData.length === 0) return;
-
-    // Remove the last row (assumed total row)
-    const totalRow = this.rowData[this.rowData.length - 1];
-    const dataWithoutTotal = this.rowData.slice(0, this.rowData.length - 1);
-
-    // Create new empty row (customize fields as needed)
-    const newRow = {
-      /* empty or default fields */
-    };
-
-    // Insert the new row before total
-    const newData = [...dataWithoutTotal, newRow, totalRow];
-
-    // Update row data, triggering grid refresh
-    this.rowData = newData;
-
-    // Optionally focus and start editing new row
-    setTimeout(() => {
-      const newRowIndex = this.rowData.length - 2;
-      this.incomeGridApi.setFocusedCell(newRowIndex, this.colDefs[0].field);
-      this.incomeGridApi.startEditingCell({ rowIndex: newRowIndex, colKey: this.colDefs[0].field });
-    });
   }
 }

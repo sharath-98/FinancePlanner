@@ -1,41 +1,232 @@
-<div class="main-container">
-   <div>
-    <mat-date-range-picker #picker (closed)="onDatePickerClosed()"></mat-date-range-picker>
+<!-- FILE: src/app/home/home.html  (REPLACE existing file) -->
+<div class="page">
+    <div class="page-header">
+        <div>
+            <h1>Dashboard</h1>
+            <p class="page-sub">Tracked income, spending, savings and debt for the months you pick.</p>
+        </div>
 
-    <mat-form-field appearance="outline">
-        <mat-label>Enter a date range</mat-label>
-        <mat-date-range-input [rangePicker]="picker" [formGroup]="range">
-            <input matStartDate formControlName="start" placeholder="Start date">
-            <input matEndDate formControlName="end" placeholder="End date">
-        </mat-date-range-input>
-        <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-        <mat-date-range-picker #picker></mat-date-range-picker>
-    
-        <mat-error *ngIf="range.controls.start.hasError('matStartDateInvalid')">Invalid start date</mat-error>
-        <mat-error *ngIf="range.controls.end.hasError('matEndDateInvalid')">Invalid end date</mat-error>
-    </mat-form-field>
-   </div>
-   <div style="display: flex; width: 100%">
-        <div class="left-container">
+        <mat-form-field appearance="outline" class="range-field" subscriptSizing="dynamic">
+            <mat-label>Date range</mat-label>
+            <mat-date-range-input [rangePicker]="picker" [formGroup]="range">
+                <input matStartDate formControlName="start" placeholder="Start date" />
+                <input matEndDate formControlName="end" placeholder="End date" />
+            </mat-date-range-input>
+            <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-date-range-picker #picker (closed)="onDatePickerClosed()"></mat-date-range-picker>
+
+            <mat-error *ngIf="range.controls.start.hasError('matStartDateInvalid')">Invalid start date</mat-error>
+            <mat-error *ngIf="range.controls.end.hasError('matEndDateInvalid')">Invalid end date</mat-error>
+        </mat-form-field>
+    </div>
+
+    <section class="kpi-grid" aria-label="Totals for the selected date range">
+        <article *ngFor="let k of kpis" class="card accent kpi" [ngClass]="k.tone">
+            <p class="kpi-label">{{ k.label }}</p>
+            <p class="kpi-value num" [class.is-negative]="k.value < 0">{{ usd(k.value) }}</p>
+            <p class="kpi-note">{{ k.note }}</p>
+        </article>
+    </section>
+
+    <!-- Insights: savings rate, year over year, unusual spending, large purchases -->
+    <section class="insight-grid" aria-label="Insights">
+        <p *ngIf="insightsState === 'loading'" class="insight-status">Loading insights…</p>
+        <p *ngIf="insightsState === 'unavailable'" class="insight-status">
+            Insights are not available right now. Check that the API is running and up to date.
+        </p>
+
+        <ng-container *ngIf="insights as ins">
+            <article class="card accent tone-savings insight" aria-labelledby="rate-title">
+                <h2 class="card-title" id="rate-title">Savings rate</h2>
+                <p class="card-sub">Share of income set aside across {{ ins.range.months }}
+                    {{ ins.range.months === 1 ? 'month' : 'months' }}.</p>
+                <p class="insight-big num">{{ rateText(ins.savings_rate.current) }}</p>
+                <p class="insight-note" *ngIf="ins.savings_rate.current !== null; else noRate">
+                    {{ usd(ins.savings_rate.savings) }} saved of {{ usd(ins.savings_rate.income) }} income.
+                    {{ rateChange(ins) }}.
+                </p>
+                <ng-template #noRate>
+                    <p class="insight-note">No income tracked in this range.</p>
+                </ng-template>
+                <div class="spark" role="img" aria-label="Savings rate for each month in the range">
+                    <span *ngFor="let bar of rateBars(ins)" class="spark-bar" [style.height.%]="bar.height"
+                        [attr.title]="bar.label"></span>
+                </div>
+            </article>
+
+            <article class="card accent tone-neutral insight" aria-labelledby="yoy-title">
+                <h2 class="card-title" id="yoy-title">Year over year</h2>
+                <p class="card-sub">{{ yoyNote(ins) }}</p>
+                <ul class="insight-list">
+                    <li *ngFor="let row of yoyRows" class="yoy-row">
+                        <span class="yoy-label">{{ row.label }}</span>
+                        <span class="yoy-values num">
+                            {{ usd(ins.year_over_year[row.key].current) }}
+                            <span class="yoy-prev">vs {{ usd(ins.year_over_year[row.key].previous) }}</span>
+                        </span>
+                        <span class="change" [ngClass]="changeTone(row.key, ins.year_over_year[row.key].change_pct)">
+                            {{ changeText(ins.year_over_year[row.key].change_pct) }}
+                        </span>
+                    </li>
+                </ul>
+            </article>
+
+            <article class="card accent tone-expense insight" aria-labelledby="unusual-title">
+                <h2 class="card-title" id="unusual-title">Unusual spending</h2>
+                <p class="card-sub">{{ ins.unusual_spending.month }} against each category's usual month.</p>
+                <ul class="insight-list" *ngIf="ins.unusual_spending.alerts.length; else nothingUnusual">
+                    <li *ngFor="let alert of ins.unusual_spending.alerts" class="alert-row">
+                        <span class="alert-name">{{ alert.category }}</span>
+                        <span class="num">{{ usd(alert.amount) }}</span>
+                        <span class="alert-note">
+                            {{ alert.times_usual }}× the usual {{ usd(alert.usual) }}
+                            (+{{ usd(alert.extra) }}), based on {{ alert.months_compared }} earlier months.
+                        </span>
+                    </li>
+                </ul>
+                <ng-template #nothingUnusual>
+                    <p class="insight-note">Nothing stands out in {{ ins.unusual_spending.month }}.</p>
+                </ng-template>
+            </article>
+
+            <article class="card accent tone-debt insight" aria-labelledby="large-title">
+                <h2 class="card-title" id="large-title">Large purchases</h2>
+                <p class="card-sub">Single purchases in {{ ins.range.last_month }} well above the usual for their
+                    category.</p>
+                <ul class="insight-list" *ngIf="ins.large_transactions.length; else noLarge">
+                    <li *ngFor="let tx of ins.large_transactions" class="alert-row">
+                        <span class="alert-name">{{ tx.merchant }}</span>
+                        <span class="num">{{ usd(tx.amount) }}</span>
+                        <span class="alert-note">
+                            {{ tx.category }}, {{ dayText(tx.date) }}. Usual purchase: {{ usd(tx.typical) }}.
+                        </span>
+                    </li>
+                </ul>
+                <ng-template #noLarge>
+                    <p class="insight-note">No unusually large purchases in {{ ins.range.last_month }}.</p>
+                </ng-template>
+            </article>
+        </ng-container>
+    </section>
+
+    <!-- Month over month -->
+    <section class="card mom" aria-labelledby="mom-title">
+        <div class="mom-head">
+            <div>
+                <h2 class="card-title" id="mom-title">Month over month</h2>
+                <p class="card-sub" *ngIf="mom">{{ mom.month }} compared with {{ mom.previous_month }}.</p>
+            </div>
+            <mat-slide-toggle *ngIf="mom?.in_progress || momCompleteOnly" [checked]="momCompleteOnly"
+                (change)="onCompleteOnlyChange($event.checked)">
+                Use last complete month
+            </mat-slide-toggle>
         </div>
-        <div class="right-container">
-            <div style="display: flex;">
-                <div class="summary-chart">
-                    <ag-charts [options]="summaryChartOptions"></ag-charts>
+
+        <p *ngIf="momState === 'loading'" class="insight-status">Loading…</p>
+        <p *ngIf="momState === 'unavailable'" class="insight-status">
+            Month over month is not available right now. Check that the API is running and up to date.
+        </p>
+
+        <ng-container *ngIf="mom as m">
+            <p class="insight-note" *ngIf="m.in_progress">
+                {{ m.month }} is not finished yet, so its totals can look lower than a full month.
+            </p>
+
+            <div class="mom-tiles">
+                <article *ngFor="let tile of momTiles" class="mom-tile">
+                    <p class="kpi-label">{{ tile.label }}</p>
+                    <p class="mom-value num">{{ usd(m.totals[tile.key].current) }}</p>
+                    <p class="change" [ngClass]="changeTone(tile.key, m.totals[tile.key].change_pct)">
+                        {{ signedUsd(m.totals[tile.key].change) }} · {{ momPct(m.totals[tile.key]) }}
+                    </p>
+                    <p class="mom-prev">{{ usd(m.totals[tile.key].previous) }} in {{ m.previous_month }}</p>
+                </article>
+
+                <article class="mom-tile">
+                    <p class="kpi-label">Savings rate</p>
+                    <p class="mom-value num">{{ rateText(m.savings_rate.current) }}</p>
+                    <p class="mom-prev">{{ momRateChange(m) }}</p>
+                </article>
+            </div>
+
+            <div class="mover-grid">
+                <div>
+                    <h3 class="mover-title">Spending went up</h3>
+                    <ul class="insight-list" *ngIf="m.movers.increases.length; else noUp">
+                        <li *ngFor="let row of m.movers.increases" class="alert-row">
+                            <span class="alert-name">{{ row.category }}</span>
+                            <span class="change bad">{{ signedUsd(row.change) }} · {{ momPct(row) }}</span>
+                            <span class="alert-note">{{ usd(row.previous) }} → {{ usd(row.current) }}</span>
+                        </li>
+                    </ul>
+                    <ng-template #noUp>
+                        <p class="insight-note">No category went up noticeably.</p>
+                    </ng-template>
+                </div>
+                <div>
+                    <h3 class="mover-title">Spending went down</h3>
+                    <ul class="insight-list" *ngIf="m.movers.decreases.length; else noDown">
+                        <li *ngFor="let row of m.movers.decreases" class="alert-row">
+                            <span class="alert-name">{{ row.category }}</span>
+                            <span class="change good">{{ signedUsd(row.change) }} · {{ momPct(row) }}</span>
+                            <span class="alert-note">{{ usd(row.previous) }} → {{ usd(row.current) }}</span>
+                        </li>
+                    </ul>
+                    <ng-template #noDown>
+                        <p class="insight-note">No category went down noticeably.</p>
+                    </ng-template>
                 </div>
             </div>
-            <div class="indi-chart">
-                <div class="sub-chart">
-                    <ag-charts [options]="incomeChartOptions"></ag-charts>
+
+            <h3 class="mover-title">Last 12 months</h3>
+            <ag-charts class="chart chart-mom" [options]="momChartOptions"></ag-charts>
+        </ng-container>
+    </section>
+
+    <section class="card chart-card" aria-labelledby="trend-title">
+        <h2 class="card-title" id="trend-title">Monthly trend</h2>
+        <p class="card-sub">Totals per month across income, expenses, savings and debt.</p>
+        <ag-charts class="chart chart-line" [options]="summaryChartOptions"></ag-charts>
+    </section>
+
+    <div class="donut-grid">
+        <section class="card accent tone-income" aria-labelledby="income-title">
+            <h2 class="card-title" id="income-title">Income by source</h2>
+            <p class="card-sub">Where the money came from.</p>
+            <ag-charts *ngIf="incomeData.length; else noIncome" class="chart chart-donut"
+                [options]="incomeChartOptions"></ag-charts>
+            <ng-template #noIncome>
+                <div class="empty-state donut-empty">
+                    <strong>No income tracked</strong>
+                    <span>Add amounts in Budget planning or save a transaction.</span>
                 </div>
-                <div class="sub-chart">
-                    <ag-charts [options]="savingsChartOptions"></ag-charts>
+            </ng-template>
+        </section>
+
+        <section class="card accent tone-savings" aria-labelledby="savings-title">
+            <h2 class="card-title" id="savings-title">Savings by destination</h2>
+            <p class="card-sub">Where the money was set aside.</p>
+            <ag-charts *ngIf="savingsData.length; else noSavings" class="chart chart-donut"
+                [options]="savingsChartOptions"></ag-charts>
+            <ng-template #noSavings>
+                <div class="empty-state donut-empty">
+                    <strong>No savings tracked</strong>
+                    <span>Add amounts in Budget planning or save a transaction.</span>
                 </div>
-                <div class="sub-chart">
-                    <ag-charts [options]="expenseChartOptions"></ag-charts>
+            </ng-template>
+        </section>
+
+        <section class="card accent tone-expense" aria-labelledby="expense-title">
+            <h2 class="card-title" id="expense-title">Expenses by category</h2>
+            <p class="card-sub">Where the money went.</p>
+            <ag-charts *ngIf="expenseData.length; else noExpenses" class="chart chart-donut"
+                [options]="expenseChartOptions"></ag-charts>
+            <ng-template #noExpenses>
+                <div class="empty-state donut-empty">
+                    <strong>No expenses tracked</strong>
+                    <span>Add amounts in Budget planning or save a transaction.</span>
                 </div>
-            </div>
-        </div>
-   </div>
+            </ng-template>
+        </section>
+    </div>
 </div>
-

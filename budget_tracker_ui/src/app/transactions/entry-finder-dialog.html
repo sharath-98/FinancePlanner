@@ -1,0 +1,59 @@
+<!-- FILE: src/app/transactions/entry-finder-dialog.html  (NEW file) -->
+<div class="dlg-head">
+    <h2 mat-dialog-title>Find an entry</h2>
+    <button type="button" class="icon-btn" (click)="close()" aria-label="Close">
+        <mat-icon aria-hidden="true">close</mat-icon>
+    </button>
+</div>
+
+<mat-dialog-content>
+    <mat-form-field appearance="outline" class="search" subscriptSizing="dynamic">
+        <mat-label>Search merchant, category, details or amount</mat-label>
+        <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+        <input matInput type="search" [formControl]="query" autocomplete="off" spellcheck="false" />
+        <button *ngIf="query.value" matSuffix type="button" class="icon-btn" (click)="query.setValue('')"
+            aria-label="Clear search">
+            <mat-icon aria-hidden="true">close</mat-icon>
+        </button>
+    </mat-form-field>
+
+    <p class="status" aria-live="polite">
+        <ng-container *ngIf="loading">Loading…</ng-container>
+        <ng-container *ngIf="!loading && !loadFailed">
+            {{ query.value.trim() ? entries.length + (entries.length === 1 ? ' match' : ' matches') : 'Latest ' +
+            entries.length + ' entries' }}
+            <ng-container *ngIf="entries.length === limit"> (showing the newest {{ limit }}; search to narrow
+                down)</ng-container>
+        </ng-container>
+    </p>
+    <p *ngIf="loadFailed" class="status error">Could not load entries. Check that the API is running.</p>
+
+    <p *ngIf="!loading && !loadFailed && entries.length === 0" class="status">Nothing found.</p>
+
+    <ul class="entries" *ngIf="!loadFailed">
+        <li *ngFor="let entry of entries" class="entry" [ngClass]="tone(entry.type)">
+            <div class="main">
+                <span class="merchant">{{ entry.merchant }}</span>
+                <span class="meta">
+                    {{ dayLabel(entry.date) }} · <span class="chip">{{ entry.category }}</span>
+                    <ng-container *ngIf="entry.paid_by_name"> · {{ entry.paid_by_name }}</ng-container>
+                </span>
+                <span class="details" *ngIf="entry.details">{{ entry.details }}</span>
+            </div>
+            <div class="side">
+                <span class="amount num">{{ money(entry.amount) }}</span>
+                <span class="type">{{ typeLabel(entry.type) }}</span>
+            </div>
+            <div class="actions">
+                <button type="button" class="icon-btn" (click)="edit(entry)" [disabled]="busyId === entry.id"
+                    [attr.aria-label]="'Edit ' + entry.merchant">
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                </button>
+                <button type="button" class="icon-btn danger" (click)="remove(entry)" [disabled]="busyId === entry.id"
+                    [attr.aria-label]="'Delete ' + entry.merchant">
+                    <mat-icon aria-hidden="true">delete</mat-icon>
+                </button>
+            </div>
+        </li>
+    </ul>
+</mat-dialog-content>
