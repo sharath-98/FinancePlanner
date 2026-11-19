@@ -1,0 +1,124 @@
+/* FILE: src/app/transactions/entry-finder-dialog.css  (NEW file) */
+.dlg-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: var(--space-3);
+}
+
+.dlg-head h2 {
+    margin: 0;
+}
+
+.icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.icon-btn:hover:not(:disabled) {
+    background: var(--surface-sunken);
+    color: var(--text);
+}
+
+.icon-btn.danger:hover:not(:disabled) {
+    color: var(--negative);
+}
+
+.icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.search {
+    width: 100%;
+    margin-top: var(--space-2);
+}
+
+.status {
+    margin: var(--space-3) 0;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+}
+
+.status.error {
+    color: var(--negative);
+}
+
+.entries {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+}
+
+.entry {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: var(--space-3);
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--tone, var(--brand));
+    border-radius: var(--radius-md);
+    background: var(--surface);
+}
+
+.main {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.merchant {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.meta,
+.details {
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    overflow-wrap: anywhere;
+}
+
+.side {
+    display: grid;
+    justify-items: end;
+    gap: 2px;
+}
+
+.amount {
+    font-weight: 700;
+}
+
+.type {
+    color: var(--tone, var(--text-muted));
+    font-size: var(--fs-xs);
+    font-weight: 600;
+}
+
+.actions {
+    display: flex;
+}
+
+@media (max-width: 560px) {
+    .entry {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .actions {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+        border-top: 1px solid var(--border);
+        padding-top: 4px;
+    }
+}

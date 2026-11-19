@@ -1,0 +1,77 @@
+<!-- FILE: src/app/transactions/category-manager-dialog.html  (NEW file) -->
+<div class="dlg-head">
+    <h2 mat-dialog-title>Categories &amp; merchants</h2>
+    <button type="button" class="icon-btn" (click)="close()" aria-label="Close">
+        <mat-icon aria-hidden="true">close</mat-icon>
+    </button>
+</div>
+
+<mat-dialog-content>
+    <div class="search-row">
+        <mat-form-field appearance="outline" class="search" subscriptSizing="dynamic">
+            <mat-label>Search categories or merchants</mat-label>
+            <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+            <input matInput type="search" [(ngModel)]="query" autocomplete="off" spellcheck="false" />
+            <button *ngIf="query" matSuffix type="button" class="icon-btn" (click)="query = ''"
+                aria-label="Clear search">
+                <mat-icon aria-hidden="true">close</mat-icon>
+            </button>
+        </mat-form-field>
+        <button type="button" class="btn btn-secondary add-btn" (click)="toggleAdd()" [attr.aria-expanded]="addOpen">
+            <mat-icon aria-hidden="true">{{ addOpen ? 'remove' : 'add' }}</mat-icon>
+            New category
+        </button>
+    </div>
+
+    <form *ngIf="addOpen" class="add-form" [formGroup]="form" (ngSubmit)="addCategory()" novalidate>
+        <mat-form-field appearance="outline" class="grow" subscriptSizing="dynamic">
+            <mat-label>Category name</mat-label>
+            <input matInput formControlName="name" maxlength="100" autocomplete="off" />
+            <mat-error>Enter a name.</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="type-field" subscriptSizing="dynamic">
+            <mat-label>Type</mat-label>
+            <mat-select formControlName="type">
+                <mat-option *ngFor="let choice of typeChoices" [value]="choice.type">{{ choice.label }}</mat-option>
+            </mat-select>
+        </mat-form-field>
+        <button type="submit" class="btn" [disabled]="saving">{{ saving ? 'Adding…' : 'Add' }}</button>
+        <p class="add-error" role="alert" aria-live="polite">{{ addError }}</p>
+    </form>
+
+    <p *ngIf="loading" class="status">Loading…</p>
+    <p *ngIf="loadFailed" class="status error">Could not load categories. Check that the API is running.</p>
+
+    <ng-container *ngIf="!loading && !loadFailed">
+        <p class="status" aria-live="polite">
+            {{ matchCount }} {{ matchCount === 1 ? 'category' : 'categories' }}{{ query ? ' match' : '' }}
+        </p>
+
+        <p *ngIf="matchCount === 0 && query" class="status">
+            Nothing matches "{{ query }}". Use <strong>New category</strong> to add it.
+        </p>
+
+        <section *ngFor="let group of groups" class="group" [ngClass]="group.tone">
+            <h3 class="group-title">{{ group.label }}</h3>
+            <ul class="cat-list">
+                <li *ngFor="let item of group.items" class="cat">
+                    <span class="cat-name">
+                        <ng-container *ngFor="let part of parts(item.category.name)">
+                            <mark *ngIf="part.hit">{{ part.text }}</mark><ng-container *ngIf="!part.hit">{{ part.text
+                                }}</ng-container>
+                        </ng-container>
+                    </span>
+                    <span class="merchants">
+                        <span *ngFor="let merchant of item.merchants" class="chip">
+                            <ng-container *ngFor="let part of parts(merchant)">
+                                <mark *ngIf="part.hit">{{ part.text }}</mark><ng-container *ngIf="!part.hit">{{
+                                    part.text }}</ng-container>
+                            </ng-container>
+                        </span>
+                        <span *ngIf="item.category.merchants.length === 0" class="none">No merchants saved yet</span>
+                    </span>
+                </li>
+            </ul>
+        </section>
+    </ng-container>
+</mat-dialog-content>

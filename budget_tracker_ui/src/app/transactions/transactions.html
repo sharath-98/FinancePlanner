@@ -5,6 +5,16 @@
             <h1>Transactions</h1>
             <p class="page-sub">Record what you earn, spend, save and pay toward debt.</p>
         </div>
+        <div class="page-actions">
+            <button type="button" class="btn btn-secondary" (click)="openEntryFinder()">
+                <mat-icon aria-hidden="true">search</mat-icon>
+                Find entry
+            </button>
+            <button type="button" class="btn btn-secondary" (click)="openCategories()">
+                <mat-icon aria-hidden="true">category</mat-icon>
+                Categories
+            </button>
+        </div>
     </div>
 
     <div class="layout">
@@ -176,7 +186,7 @@
                 <ng-container *ngIf="rowsLoaded">
                     <ag-grid-angular *ngIf="rowData.length; else emptyRows" class="grid" [theme]="theme"
                         [rowData]="rowData" [columnDefs]="colDefs" [defaultColDef]="defaultColDef"
-                        [quickFilterText]="search" />
+                        [quickFilterText]="search" (cellClicked)="onCellClicked($event)" />
                     <ng-template #emptyRows>
                         <div class="empty-state">
                             <strong>No transactions in {{ periodLabel }}</strong>

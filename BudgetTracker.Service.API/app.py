@@ -170,6 +170,28 @@ def planner_month_activity():
     return jsonify(get_repo().get_month_activity(data))
 
 
+@app.route('/searchTransactions', methods=['POST'])
+def search_transactions():
+    """New, read-only. Newest entries first; {"query": "...", "limit": 25} are both optional.
+    {"id": 12} returns just that transaction."""
+    body = json_body()
+    return jsonify(get_repo().search_transactions(body.get('query'), body.get('limit'), body.get('id')))
+
+
+@app.route('/updateTransaction', methods=['POST'])
+def update_transaction():
+    """New. Changes one transaction; the planner is corrected by the difference."""
+    get_repo().update_transaction(require_field(json_body(), 'transaction'))
+    return jsonify({"msg": "success"})
+
+
+@app.route('/deleteTransaction', methods=['POST'])
+def delete_transaction():
+    """New. Deletes one transaction; its amount comes back out of the planner."""
+    get_repo().delete_transaction(require_field(json_body(), 'id'))
+    return jsonify({"msg": "success"})
+
+
 @app.route('/getsubcategory', methods=['POST'])
 def sub_category():
     category_id = require_field(json_body(), 'category_id')
@@ -239,6 +261,23 @@ def get_categories():
         "categories": res.to_dict(orient='records'),
         "types": types
     })
+
+
+@app.route('/saveCategory', methods=['POST'])
+def save_category():
+    """New. Adds a category: {"name": "Pets", "type": "expense"}."""
+    body = json_body()
+    user = g.get('current_user')
+    created = get_repo().save_category(
+        require_field(body, 'name'), require_field(body, 'type'), user['id'] if user else None
+    )
+    return jsonify(created), 201
+
+
+@app.route('/categoryMappings', methods=['GET'])
+def category_mappings():
+    """New, read-only. Every category with its saved merchants."""
+    return jsonify(get_repo().get_category_mappings())
 
 
 @app.route('/income', methods=['POST'])

@@ -124,6 +124,42 @@ class BudgetRepository:
 
         return df_final, types
 
+    def save_category(self, name, category_type, user_id=None):
+        """Adds a category. Names are unique ignoring capitals. Returns the new category."""
+        name = parse_text(name, "name", 100)
+        if category_type not in PLANNER_TABLE_BY_TRANSACTION_TYPE:
+            raise ApiError("type must be income, expense, saving or debt.")
+
+        # One request at a time per name, so two taps cannot both pass the check below.
+        self.cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"category:{name.lower()}",))
+        self.cur.execute("SELECT 1 FROM budgets.categories WHERE lower(name) = lower(%s)", (name,))
+        if self.cur.fetchone() is not None:
+            raise ApiError("A category with that name already exists.", 409)
+
+        self.cur.execute(
+            "INSERT INTO budgets.categories (user_id, type, name) VALUES (%s, %s, %s) RETURNING id",
+            (user_id, category_type, name),
+        )
+        new_id = self.cur.fetchone()[0]
+        self.conn.commit()
+        return {"id": new_id, "type": category_type, "name": name}
+
+    def get_category_mappings(self):
+        """Every category with the merchants saved under it, for the search screen."""
+        self.cur.execute(
+            "SELECT c.id, c.name, c.type, s.merchant "
+            "FROM budgets.categories c LEFT JOIN budgets.subcategory s ON s.category_id = c.id "
+            "ORDER BY c.type, lower(c.name), lower(s.merchant)"
+        )
+        categories = {}
+        for category_id, name, category_type, merchant in self.cur.fetchall():
+            entry = categories.setdefault(
+                category_id, {"id": category_id, "name": name, "type": category_type, "merchants": []}
+            )
+            if merchant is not None:
+                entry["merchants"].append(merchant)
+        return list(categories.values())
+
     def get_users(self):
         self.cur.execute("SELECT id, username FROM budgets.users ORDER BY id")
         rows = self.cur.fetchall()
@@ -206,8 +242,8 @@ class BudgetRepository:
         df_final = df_final.fillna(0)
         return df_final
 
-    def save_transaction(self, transaction):
-        """Saves the transaction and adds its amount to the planner, as one all-or-nothing step."""
+    def _parse_transaction(self, transaction):
+        """Checks every field of a transaction sent by the UI. Returns the cleaned values."""
         if not isinstance(transaction, dict):
             raise ApiError("transaction must be an object.")
 
@@ -238,18 +274,132 @@ class BudgetRepository:
         if self.cur.fetchone() is None:
             raise ApiError("That payer does not exist.", 404)
 
+        return {
+            'type': tx_type, 'category_id': category_id, 'paid_by': paid_by, 'amount': amount,
+            'date': tx_date, 'merchant': merchant, 'details': details,
+        }
+
+    def save_transaction(self, transaction):
+        """Saves the transaction and adds its amount to the planner, as one all-or-nothing step."""
+        t = self._parse_transaction(transaction)
+
         self.cur.execute(
             "INSERT INTO budgets.transactions "
             "(user_id, date, type, category, amount, details, created_at, merchant) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-            (paid_by, tx_date, tx_type, category_id, amount, details, datetime.now(), merchant),
+            (t['paid_by'], t['date'], t['type'], t['category_id'], t['amount'], t['details'],
+             datetime.now(), t['merchant']),
         )
         self._set_planner_amount(
-            PLANNER_TABLE_BY_TRANSACTION_TYPE[tx_type], category_id, tx_date.year, tx_date.month,
-            amount, add=True,
+            PLANNER_TABLE_BY_TRANSACTION_TYPE[t['type']], t['category_id'], t['date'].year,
+            t['date'].month, t['amount'], add=True,
         )
         self.conn.commit()
         return 1
+
+    def search_transactions(self, query=None, limit=25, tx_id=None):
+        """Newest first. With a search text, matches merchant, details, category name or exact amount.
+        With tx_id, returns just that one transaction (used to open it for editing)."""
+        limit = parse_int(25 if limit is None else limit, "limit", minimum=1, maximum=100)
+        text = (query or "").strip() if isinstance(query, str) or query is None else None
+        if text is None:
+            raise ApiError("query must be text.")
+        if len(text) > 100:
+            raise ApiError("query is too long.")
+
+        where, params = "", []
+        if tx_id is not None:
+            where = "WHERE t.id = %s"
+            params.append(parse_int(tx_id, "id", minimum=1))
+        elif text:
+            escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
+            clauses = [
+                "t.merchant ILIKE %s ESCAPE '\\'",
+                "COALESCE(t.details, '') ILIKE %s ESCAPE '\\'",
+                "c.name ILIKE %s ESCAPE '\\'",
+            ]
+            params += [pattern, pattern, pattern]
+            try:
+                params.append(parse_amount(text.replace("$", "").replace(",", "")))
+                clauses.append("t.amount = %s")
+            except ApiError:
+                pass  # not a number, so only the text columns are searched
+            where = "WHERE " + " OR ".join(clauses)
+
+        self.cur.execute(
+            "SELECT t.id, t.date, t.type, t.category, c.name, t.amount, t.merchant, t.details, "
+            "t.user_id, u.username "
+            "FROM budgets.transactions t "
+            "JOIN budgets.categories c ON c.id = t.category "
+            "LEFT JOIN budgets.users u ON u.id = t.user_id "
+            f"{where} ORDER BY t.date DESC, t.id DESC LIMIT %s",
+            params + [limit],
+        )
+        return [
+            {
+                "id": r[0], "date": r[1].isoformat(), "type": r[2], "category_id": r[3],
+                "category": r[4], "amount": r[5], "merchant": r[6], "details": r[7] or "",
+                "paidby": r[8], "paid_by_name": r[9],
+            }
+            for r in self.cur.fetchall()
+        ]
+
+    def _lock_transaction(self, tx_id):
+        """The stored transaction, locked so nothing else changes it until we commit."""
+        self.cur.execute(
+            "SELECT type, category, amount, date FROM budgets.transactions WHERE id = %s FOR UPDATE",
+            (tx_id,),
+        )
+        row = self.cur.fetchone()
+        if row is None:
+            raise ApiError("That transaction no longer exists.", 404)
+        return {'type': row[0], 'category_id': row[1], 'amount': row[2], 'date': row[3]}
+
+    def _remove_from_planner(self, tx_type, category_id, tx_date, amount):
+        """Takes a transaction's amount back out of its planner cell (the reverse of saving it)."""
+        table = PLANNER_TABLE_BY_TRANSACTION_TYPE[tx_type]
+        year, month = tx_date.year, tx_date.month
+        start, following = month_bounds(year, month)
+        self.cur.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s))", (f"{table}:{category_id}:{year}-{month}",)
+        )
+        self.cur.execute(
+            f"SELECT id FROM {table} WHERE category_id = %s AND date >= %s AND date < %s ORDER BY id",
+            (category_id, start, following),
+        )
+        row = self.cur.fetchone()
+        if row is not None:
+            self.cur.execute(f"UPDATE {table} SET amount = amount - %s WHERE id = %s", (amount, row[0]))
+
+    def update_transaction(self, transaction):
+        """Changes a transaction and moves its effect on the planner, all or nothing."""
+        if not isinstance(transaction, dict):
+            raise ApiError("transaction must be an object.")
+        tx_id = parse_int(transaction.get('id'), "id", minimum=1)
+        t = self._parse_transaction(transaction)
+        old = self._lock_transaction(tx_id)
+
+        self._remove_from_planner(old['type'], old['category_id'], old['date'], old['amount'])
+        self.cur.execute(
+            "UPDATE budgets.transactions SET user_id = %s, date = %s, type = %s, category = %s, "
+            "amount = %s, details = %s, merchant = %s, updated_at = %s WHERE id = %s",
+            (t['paid_by'], t['date'], t['type'], t['category_id'], t['amount'], t['details'],
+             t['merchant'], datetime.now(), tx_id),
+        )
+        self._set_planner_amount(
+            PLANNER_TABLE_BY_TRANSACTION_TYPE[t['type']], t['category_id'], t['date'].year,
+            t['date'].month, t['amount'], add=True,
+        )
+        self.conn.commit()
+
+    def delete_transaction(self, tx_id):
+        """Deletes a transaction and takes its amount back out of the planner, all or nothing."""
+        tx_id = parse_int(tx_id, "id", minimum=1)
+        old = self._lock_transaction(tx_id)
+        self._remove_from_planner(old['type'], old['category_id'], old['date'], old['amount'])
+        self.cur.execute("DELETE FROM budgets.transactions WHERE id = %s", (tx_id,))
+        self.conn.commit()
 
     # ------------------------------------------------------------------
     # Planner edits

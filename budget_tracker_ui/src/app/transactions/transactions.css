@@ -242,3 +242,50 @@
     height: clamp(360px, 65vh, 640px);
   }
 }
+
+/* Header buttons (Find entry, Categories) */
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Edit and delete buttons in the grid. They are created by AG Grid, so ::ng-deep is needed. */
+:host ::ng-deep .row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  height: 100%;
+}
+
+:host ::ng-deep .row-action-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+:host ::ng-deep .row-action-btn .material-icons {
+  font-size: 20px;
+}
+
+:host ::ng-deep .row-action-btn:hover {
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
+:host ::ng-deep .row-action-btn.delete:hover {
+  color: var(--negative);
+}
+
+:host ::ng-deep .row-action-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}

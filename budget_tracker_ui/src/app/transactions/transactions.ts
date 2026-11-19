@@ -10,11 +10,21 @@ import {
 } from '@angular/forms';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { MatSelectChange } from '@angular/material/select';
-import { type CellClassParams, type CellStyle, type ColDef } from 'ag-grid-community';
+import {
+  type CellClassParams,
+  type CellClickedEvent,
+  type CellStyle,
+  type ColDef,
+  type ICellRendererParams,
+} from 'ag-grid-community';
 import { ToastrService } from 'ngx-toastr';
 import { Observable, combineLatest, map, startWith } from 'rxjs';
 import { TransactionService } from './transaction-service';
 import { AuthService } from '../auth/auth.service';
+import { MatDialog } from '@angular/material/dialog';
+import { CategoryManagerDialog } from './category-manager-dialog';
+import { EntryFinderDialog } from './entry-finder-dialog';
+import { TransactionActions } from './transaction-actions';
 import { gridTheme, moneyFormatter } from '../shared/grid-theme';
 import { formatUsd } from '../shared/design-tokens';
 
@@ -165,6 +175,19 @@ export class Transactions implements OnInit {
       valueFormatter: moneyFormatter,
     },
     { field: 'details', headerName: 'Details', hide: this.isPhone, minWidth: 240, flex: 3 },
+    {
+      // Edit and delete buttons for each row; clicks are handled in onCellClicked
+      colId: 'actions',
+      headerName: '',
+      width: 100,
+      pinned: 'right',
+      lockPinned: true,
+      sortable: false,
+      filter: false,
+      resizable: false,
+      suppressMovable: true,
+      cellRenderer: (params: ICellRendererParams) => this.actionButtons(params),
+    },
   ];
 
   defaultColDef: ColDef = {
@@ -179,6 +202,8 @@ export class Transactions implements OnInit {
     private toastr: ToastrService,
     private fb: FormBuilder,
     private auth: AuthService,
+    private dialog: MatDialog,
+    private actions: TransactionActions,
   ) {
     this.transactionForm = this.fb.group({
       type: ['expense', Validators.required],
@@ -204,13 +229,7 @@ export class Transactions implements OnInit {
       this.users = Array.isArray(data) ? data : [];
     });
 
-    this.transSrv.get_categories().subscribe((data) => {
-      this.categories = data?.['categories'] ?? [];
-      const types: string[] = data?.['types'] ?? [];
-      this.types = [...types].sort((a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b));
-      // Re-run the category filter now that the list has arrived
-      this.transactionForm.get('category')!.updateValueAndValidity();
-    });
+    this.loadCategories();
 
     const typeControl = this.transactionForm.get('type')!;
     const categoryControl = this.transactionForm.get('category')!;
@@ -239,6 +258,104 @@ export class Transactions implements OnInit {
   }
 
   /* ---------- Form helpers ---------- */
+
+  private loadCategories(): void {
+    this.transSrv.get_categories().subscribe((data) => {
+      this.categories = data?.['categories'] ?? [];
+      const types: string[] = data?.['types'] ?? [];
+      this.types = [...types].sort((a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b));
+      // Re-run the category filter now that the list has arrived
+      this.transactionForm.get('category')!.updateValueAndValidity();
+    });
+  }
+
+  /** Opens the categories and merchants search; the category list reloads when one is added. */
+  openCategories(): void {
+    this.dialog.open(CategoryManagerDialog, {
+      width: '680px',
+      maxWidth: '94vw',
+      maxHeight: '90vh',
+      autoFocus: 'dialog',
+      data: { onAdded: () => this.loadCategories() },
+    });
+  }
+
+  /** Opens the search for finding an entry to edit or delete; the list reloads after a change. */
+  openEntryFinder(): void {
+    this.dialog.open(EntryFinderDialog, {
+      width: '720px',
+      maxWidth: '94vw',
+      maxHeight: '92vh',
+      autoFocus: 'dialog',
+      data: {
+        categories: this.categories,
+        users: this.users,
+        onChanged: () => this.loadTransactions(),
+      },
+    });
+  }
+
+  /** The pencil and bin buttons shown at the end of every row. */
+  private actionButtons(params: ICellRendererParams): HTMLElement {
+    const box = document.createElement('div');
+    box.className = 'row-actions';
+    if (params.data?.id == null) return box;
+
+    const make = (action: 'edit' | 'delete', icon: string, label: string) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `row-action-btn ${action}`;
+      button.dataset['action'] = action;
+      button.setAttribute('aria-label', `${label} ${params.data.merchant}`);
+      button.title = label;
+      const glyph = document.createElement('span');
+      glyph.className = 'material-icons';
+      glyph.setAttribute('aria-hidden', 'true');
+      glyph.textContent = icon;
+      button.appendChild(glyph);
+      return button;
+    };
+    box.append(make('edit', 'edit', 'Edit'), make('delete', 'delete', 'Delete'));
+    return box;
+  }
+
+  /** True while an edit or delete is being opened, so a double tap cannot start it twice. */
+  private rowActionBusy = false;
+
+  onCellClicked(event: CellClickedEvent): void {
+    if (event.colDef.colId !== 'actions' || this.rowActionBusy || event.data?.id == null) return;
+    const button = (event.event?.target as HTMLElement | null)?.closest<HTMLButtonElement>(
+      'button[data-action]',
+    );
+    if (!button) return;
+
+    const action = button.dataset['action'];
+    this.rowActionBusy = true;
+    this.actions.loadEntry(Number(event.data.id)).subscribe({
+      next: (entry) => {
+        if (!entry) {
+          this.rowActionBusy = false;
+          this.toastr.error('That transaction no longer exists.');
+          this.loadTransactions();
+          return;
+        }
+        if (action === 'edit') {
+          this.actions.edit(entry, this.categories, this.users, () => this.loadTransactions());
+          this.rowActionBusy = false;
+        } else {
+          this.actions.remove(
+            entry,
+            () => this.loadTransactions(),
+            () => (this.rowActionBusy = false),
+          );
+        }
+      },
+      error: () => {
+        this.rowActionBusy = false;
+        this.toastr.error('Could not open that transaction. Check that the API is running.');
+      },
+    });
+  }
 
   typeLabel(type: string): string {
     return TYPE_LABELS[type] ?? type;
