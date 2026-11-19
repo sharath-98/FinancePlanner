@@ -1,41 +1,77 @@
-<div class="main-container">
-   <div>
-    <mat-date-range-picker #picker (closed)="onDatePickerClosed()"></mat-date-range-picker>
+<!-- FILE: src/app/home/home.html  (REPLACE existing file) -->
+<div class="page">
+    <div class="page-header">
+        <div>
+            <h1>Dashboard</h1>
+            <p class="page-sub">Tracked income, spending, savings and debt for the months you pick.</p>
+        </div>
 
-    <mat-form-field appearance="outline">
-        <mat-label>Enter a date range</mat-label>
-        <mat-date-range-input [rangePicker]="picker" [formGroup]="range">
-            <input matStartDate formControlName="start" placeholder="Start date">
-            <input matEndDate formControlName="end" placeholder="End date">
-        </mat-date-range-input>
-        <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-        <mat-date-range-picker #picker></mat-date-range-picker>
-    
-        <mat-error *ngIf="range.controls.start.hasError('matStartDateInvalid')">Invalid start date</mat-error>
-        <mat-error *ngIf="range.controls.end.hasError('matEndDateInvalid')">Invalid end date</mat-error>
-    </mat-form-field>
-   </div>
-   <div style="display: flex; width: 100%">
-        <div class="left-container">
-        </div>
-        <div class="right-container">
-            <div style="display: flex;">
-                <div class="summary-chart">
-                    <ag-charts [options]="summaryChartOptions"></ag-charts>
+        <mat-form-field appearance="outline" class="range-field" subscriptSizing="dynamic">
+            <mat-label>Date range</mat-label>
+            <mat-date-range-input [rangePicker]="picker" [formGroup]="range">
+                <input matStartDate formControlName="start" placeholder="Start date" />
+                <input matEndDate formControlName="end" placeholder="End date" />
+            </mat-date-range-input>
+            <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-date-range-picker #picker (closed)="onDatePickerClosed()"></mat-date-range-picker>
+
+            <mat-error *ngIf="range.controls.start.hasError('matStartDateInvalid')">Invalid start date</mat-error>
+            <mat-error *ngIf="range.controls.end.hasError('matEndDateInvalid')">Invalid end date</mat-error>
+        </mat-form-field>
+    </div>
+
+    <section class="kpi-grid" aria-label="Totals for the selected date range">
+        <article *ngFor="let k of kpis" class="card accent kpi" [ngClass]="k.tone">
+            <p class="kpi-label">{{ k.label }}</p>
+            <p class="kpi-value num" [class.is-negative]="k.value < 0">{{ usd(k.value) }}</p>
+            <p class="kpi-note">{{ k.note }}</p>
+        </article>
+    </section>
+
+    <section class="card chart-card" aria-labelledby="trend-title">
+        <h2 class="card-title" id="trend-title">Monthly trend</h2>
+        <p class="card-sub">Totals per month across income, expenses, savings and debt.</p>
+        <ag-charts class="chart chart-line" [options]="summaryChartOptions"></ag-charts>
+    </section>
+
+    <div class="donut-grid">
+        <section class="card accent tone-income" aria-labelledby="income-title">
+            <h2 class="card-title" id="income-title">Income by source</h2>
+            <p class="card-sub">Where the money came from.</p>
+            <ag-charts *ngIf="incomeData.length; else noIncome" class="chart chart-donut"
+                [options]="incomeChartOptions"></ag-charts>
+            <ng-template #noIncome>
+                <div class="empty-state donut-empty">
+                    <strong>No income tracked</strong>
+                    <span>Add amounts in Budget planning or save a transaction.</span>
                 </div>
-            </div>
-            <div class="indi-chart">
-                <div class="sub-chart">
-                    <ag-charts [options]="incomeChartOptions"></ag-charts>
+            </ng-template>
+        </section>
+
+        <section class="card accent tone-savings" aria-labelledby="savings-title">
+            <h2 class="card-title" id="savings-title">Savings by destination</h2>
+            <p class="card-sub">Where the money was set aside.</p>
+            <ag-charts *ngIf="savingsData.length; else noSavings" class="chart chart-donut"
+                [options]="savingsChartOptions"></ag-charts>
+            <ng-template #noSavings>
+                <div class="empty-state donut-empty">
+                    <strong>No savings tracked</strong>
+                    <span>Add amounts in Budget planning or save a transaction.</span>
                 </div>
-                <div class="sub-chart">
-                    <ag-charts [options]="savingsChartOptions"></ag-charts>
+            </ng-template>
+        </section>
+
+        <section class="card accent tone-expense" aria-labelledby="expense-title">
+            <h2 class="card-title" id="expense-title">Expenses by category</h2>
+            <p class="card-sub">Where the money went.</p>
+            <ag-charts *ngIf="expenseData.length; else noExpenses" class="chart chart-donut"
+                [options]="expenseChartOptions"></ag-charts>
+            <ng-template #noExpenses>
+                <div class="empty-state donut-empty">
+                    <strong>No expenses tracked</strong>
+                    <span>Add amounts in Budget planning or save a transaction.</span>
                 </div>
-                <div class="sub-chart">
-                    <ag-charts [options]="expenseChartOptions"></ag-charts>
-                </div>
-            </div>
-        </div>
-   </div>
+            </ng-template>
+        </section>
+    </div>
 </div>
-

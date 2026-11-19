@@ -1,44 +1,77 @@
-.month-picker .mat-calendar-period-button {
-  pointer-events: none;
+/* FILE: src/app/home/home.css  (REPLACE existing file) */
+/* KPI card styles (.kpi, .kpi-label, .kpi-value, .kpi-note) now live in src/styles.scss */
+
+.range-field {
+  width: 300px;
+  max-width: 100%;
 }
 
-.month-picker .mat-calendar-arrow {
-  display: none;
+/* ---------- KPI row: five cards on the Dashboard ---------- */
+.kpi-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
-.main-container {
-  margin: 20px;
-  display: flex;
-  flex-direction: column;
+/* ---------- Charts ---------- */
+.chart-card {
+  margin-bottom: var(--space-4);
 }
 
-.left-container{
-  width: 0%;
-  height: 800px;
-}
-
-.right-container{
+/* Charts fill their card: width comes from the container, height is set here */
+.chart {
+  display: block;
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  margin-top: var(--space-4);
 }
 
-.summary-chart{
-  display: flex;
-  justify-content: center;
-  margin-top: 15px;
-  border: 1px solid lightgray;
+.chart-line {
+  height: 400px;
 }
 
-.indi-chart{
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  margin-top: 15px;
+.chart-donut {
+  height: 380px;
 }
 
-.sub-chart{
-  margin: 0 5px 5px 5px;
-  border: 1px solid lightgray;
+.donut-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+}
+
+.donut-empty {
+  height: 380px;
+  align-content: center;
+}
+
+/* ---------- Tablet: 3 + 2 KPI cards ---------- */
+@media (max-width: 1100px) {
+  .kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Phone: 2 per row, last card full width ---------- */
+@media (max-width: 720px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .kpi.card {
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  }
+
+  .kpi:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .chart-line {
+    height: 320px;
+  }
+
+  .chart-donut,
+  .donut-empty {
+    height: 340px;
+  }
 }

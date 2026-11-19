@@ -1,85 +1,122 @@
-.main-container {
+/* FILE: src/app/budget-planner/budget-planner.css  (REPLACE existing file) */
+
+/* The planner has 14 columns, so it uses more of a wide screen than other pages */
+.page.page-wide {
+  max-width: 1800px;
+}
+
+.year-field {
+  width: 160px;
+}
+
+ag-grid-angular {
+  display: block;
+  width: 100%;
+}
+
+/* ---------- Unallocated banner ---------- */
+.alloc {
+  margin-bottom: var(--space-5);
+}
+
+.alloc-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.alloc-total {
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-align: right;
+  color: var(--text);
+}
+
+.alloc-total.is-negative {
+  color: var(--negative);
+}
+
+.alloc-total span {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-faint);
+}
+
+/* ---------- Toolbar ---------- */
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* ---------- Section panels ---------- */
+.sections {
   display: flex;
   flex-direction: column;
-  margin: 40px;
+  gap: var(--space-3);
 }
 
-.grid-container {
-  margin: 20px 0px 20px 0px;
+.section.mat-expansion-panel {
+  --mat-expansion-container-shape: var(--radius-lg);
+  --mat-expansion-container-background-color: var(--surface);
+  --mat-expansion-container-text-color: var(--text);
+  --mat-expansion-header-text-color: var(--text);
+  --mat-expansion-header-collapsed-state-height: 56px;
+  --mat-expansion-header-expanded-state-height: 56px;
+
+  margin: 0;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--tone, var(--brand));
+  border-radius: var(--radius-lg) !important;
+  box-shadow: none;
+  background: var(--surface);
 }
 
-.custom-budget-theme {
-  --ag-background-color: lightgreen;      /* Custom background */
-  --ag-foreground-color: black;      /* Custom text color */
-  --ag-header-background-color: rgb(3, 149, 3); /* Header background */
-  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
-}
-
-.custom-expense-theme {
-  --ag-background-color: rgb(245, 114, 114);      /* Custom background */
-  --ag-foreground-color: white;    /* Custom text color */
-  --ag-header-background-color: red; /* Header background */
-  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
-}
-
-.custom-savings-theme {
-  --ag-background-color: rgb(101, 200, 233);      /* Custom background */
-  --ag-foreground-color: indigo;    /* Custom text color */
-  --ag-header-background-color: indigo; /* Header background */
-  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
-}
-
-.custom-debt-theme {
-  --ag-background-color: lightyellow;      /* Custom background */
-  --ag-foreground-color: black;    /* Custom text color */
-  --ag-header-background-color: yellow; /* Header background */
-  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
-}
-
-.custom-allocated-theme {
-  --ag-background-color: rgb(35, 178, 226);      /* Custom background */
-  --ag-foreground-color: white;    /* Custom text color */
-  --ag-header-background-color: #3f51b5; /* Header background */
-  --ag-row-hover-color: rgb(96, 210, 96);       /* Row hover */
-}
-
-::ng-deep .ag-row.ag-row-last {
-    font-weight: bold !important;
-}
-
-/* Customize header cells */
-::ng-deep .custom-budget-theme .ag-header-cell-text, ::ng-deep .custom-expense-theme .ag-header-cell-text, ::ng-deep .custom-savings-theme .ag-header-cell-text, ::ng-deep .custom-allocated-theme .ag-header-cell-text {
+.section mat-panel-title {
+  font-size: var(--fs-md);
   font-weight: 700;
-  font-size: 14px;
-  text-transform: uppercase;
-  color: white !important;
-  font-weight: bold !important;
+  color: var(--text);
 }
 
-::ng-deep .custom-debt-theme .ag-header-cell-text {
-  font-weight: 700;
-  font-size: 14px;
-  text-transform: uppercase;
-  color: black !important;
-  font-weight: bold !important;
+.section mat-panel-description {
+  justify-content: flex-end;
+  margin-right: 0;
 }
 
-/* Customize grid rows */
-.custom-budget-theme .ag-row {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 13px;
+/* Grids use the card's full width, with a little less padding than Material's default */
+:host ::ng-deep .section .mat-expansion-panel-body {
+  padding: 0 var(--space-4) var(--space-4);
 }
 
-/* Customize selected rows */
-.custom-budget-theme .ag-row-selected {
-  background-color: #81d4fa !important;
-}
+/* ---------- Phone ---------- */
+@media (max-width: 720px) {
+  .year-field {
+    width: 100%;
+  }
 
-button{
-  background: #3f51b5;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  margin: 5px;
-}
+  .alloc-total {
+    text-align: left;
+    font-size: var(--fs-lg);
+  }
 
+  .toolbar {
+    justify-content: stretch;
+  }
+
+  .toolbar .btn {
+    flex: 1;
+  }
+
+  :host ::ng-deep .section .mat-expansion-panel-body {
+    padding: 0 var(--space-2) var(--space-3);
+  }
+}

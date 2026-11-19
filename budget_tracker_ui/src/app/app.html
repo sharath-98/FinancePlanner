@@ -1,24 +1,49 @@
-<mat-toolbar color="primary" style="display: flex; width: 100%; justify-content: space-between">
-    <div>
-        <h2 class="logo">💰 Finance Management</h2>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="app-header">
+    <div class="header-inner">
+        <a class="brand" routerLink="/home" aria-label="Ledger home">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9" fill="currentColor" />
+                <rect x="7" y="16" width="4.5" height="9" rx="1.2" fill="#fff" opacity="0.55" />
+                <rect x="13.75" y="11" width="4.5" height="14" rx="1.2" fill="#fff" opacity="0.8" />
+                <rect x="20.5" y="6" width="4.5" height="19" rx="1.2" fill="#fff" />
+            </svg>
+            <span class="brand-name">Ledger</span>
+        </a>
+
+        <nav class="nav" aria-label="Main">
+            <a class="nav-link" routerLink="/home" routerLinkActive="active" ariaCurrentWhenActive="page">
+                <mat-icon aria-hidden="true">space_dashboard</mat-icon>
+                <span>Dashboard</span>
+            </a>
+            <a class="nav-link" routerLink="/planner" routerLinkActive="active" ariaCurrentWhenActive="page">
+                <mat-icon aria-hidden="true">event_note</mat-icon>
+                <span>Budget planning</span>
+            </a>
+            <a class="nav-link" routerLink="/transactions" routerLinkActive="active" ariaCurrentWhenActive="page">
+                <mat-icon aria-hidden="true">receipt_long</mat-icon>
+                <span>Transactions</span>
+            </a>
+        </nav>
+
+        <div class="header-actions">
+            <button type="button" class="icon-btn" (click)="toggleTheme()"
+                [attr.aria-label]="isDark ? 'Switch to light theme' : 'Switch to dark theme'"
+                [attr.aria-pressed]="isDark">
+                <mat-icon aria-hidden="true">{{ isDark ? 'light_mode' : 'dark_mode' }}</mat-icon>
+            </button>
+            <button type="button" class="icon-btn" aria-label="Settings">
+                <mat-icon aria-hidden="true">settings</mat-icon>
+            </button>
+        </div>
     </div>
-    <div>
-        <span style="margin-left: 20px; font-size: 15px; cursor: pointer" routerLink="home"
-            routerLinkActive="active">Dashboard</span>
-        <span style="margin-left: 20px; font-size: 15px; cursor: pointer" routerLink="planner"
-            [routerLinkActive]="['active']">Budget Planning</span>
-        <span style="margin-left: 20px; font-size: 15px; cursor: pointer" routerLink="transactions"
-            [routerLinkActive]="['active']">Transactions</span>
-        <span class="example-spacer"></span>
-    </div>
-    <div>
-        
-        <button mat-icon-button class="example-icon">
-            <mat-icon>settings</mat-icon>
-        </button>
-    </div>
-</mat-toolbar>
-<div *ngIf="loading$ | async" class="spinner-overlay">
-    <mat-spinner></mat-spinner>
+</header>
+
+<div *ngIf="loading$ | async" class="spinner-overlay" role="status" aria-label="Loading">
+    <mat-spinner diameter="40"></mat-spinner>
 </div>
-<router-outlet></router-outlet>
+
+<main id="main" class="app-main">
+    <router-outlet></router-outlet>
+</main>
