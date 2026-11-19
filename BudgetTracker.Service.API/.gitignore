@@ -5,3 +5,4 @@ __pycache__/
 auth_secret.key
 set_password.py
 appsettings.json
+Database
