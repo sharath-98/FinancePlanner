@@ -1,0 +1,142 @@
+<!-- FILE: src/app/debt/loan-setup-dialog.html  (NEW file) -->
+<div class="dlg-head">
+    <h2 mat-dialog-title>{{ title }}</h2>
+    <button type="button" class="icon-btn" (click)="close()" aria-label="Close">
+        <mat-icon aria-hidden="true">close</mat-icon>
+    </button>
+</div>
+
+<!-- ===== Loan details ===== -->
+<form *ngIf="data.mode === 'account'" [formGroup]="form" (ngSubmit)="saveAccount()" novalidate>
+    <mat-dialog-content>
+        <p class="intro" *ngIf="isNew">
+            Creates a new debt category. Log its payments from <strong>Transactions</strong> with type
+            <strong>Debt</strong>, the same way as the other loans.
+        </p>
+
+        <div class="fields">
+            <mat-form-field appearance="outline" class="wide" *ngIf="isNew">
+                <mat-label>Loan name</mat-label>
+                <input matInput formControlName="name" maxlength="100" placeholder="e.g. Housing-Loan" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="wide">
+                <mat-label>Lender</mat-label>
+                <input matInput formControlName="lender" maxlength="200" placeholder="e.g. Rocket Mortgage" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="wide">
+                <mat-label>Start tracking from</mat-label>
+                <mat-select formControlName="startFrom">
+                    <mat-option value="start">The start of the loan (uses every payment already recorded)</mat-option>
+                    <mat-option value="balance">A balance on a recent statement</mat-option>
+                </mat-select>
+            </mat-form-field>
+
+            <!-- From the start of the loan -->
+            <ng-container *ngIf="fromStart">
+                <mat-form-field appearance="outline">
+                    <mat-label>Amount borrowed</mat-label>
+                    <span matTextPrefix>$&nbsp;</span>
+                    <input matInput type="number" step="0.01" min="0.01" formControlName="original_amount" />
+                    <mat-hint>"Amount financed" on the loan papers</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                    <mat-label>Loan start date</mat-label>
+                    <input matInput type="date" [max]="today" formControlName="start_date" />
+                    <mat-hint>Before the first payment</mat-hint>
+                </mat-form-field>
+            </ng-container>
+
+            <!-- From a recent balance -->
+            <ng-container *ngIf="!fromStart">
+                <mat-form-field appearance="outline">
+                    <mat-label>Balance owed</mat-label>
+                    <span matTextPrefix>$&nbsp;</span>
+                    <input matInput type="number" step="0.01" min="0" formControlName="opening_balance" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                    <mat-label>On date</mat-label>
+                    <input matInput type="date" [max]="today" formControlName="opening_balance_date" />
+                    <mat-hint>Payments after this date are counted</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="wide">
+                    <mat-label>Amount borrowed (optional)</mat-label>
+                    <span matTextPrefix>$&nbsp;</span>
+                    <input matInput type="number" step="0.01" min="0.01" formControlName="original_amount" />
+                    <mat-hint>Used for "% paid off". Without it, % is measured from the balance above.</mat-hint>
+                </mat-form-field>
+            </ng-container>
+
+            <mat-form-field appearance="outline">
+                <mat-label>Interest rate (APR)</mat-label>
+                <input matInput type="number" step="0.001" min="0" max="99.999" formControlName="interest_rate" />
+                <span matTextSuffix>&nbsp;%</span>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+                <mat-label>Monthly payment</mat-label>
+                <span matTextPrefix>$&nbsp;</span>
+                <input matInput type="number" step="0.01" min="0.01" formControlName="monthly_payment" />
+                <mat-hint>Mortgage: principal + interest only</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+                <mat-label>Term in months (optional)</mat-label>
+                <input matInput type="number" step="1" min="1" max="600" formControlName="term_months" />
+            </mat-form-field>
+
+            <div class="toggle-row">
+                <mat-slide-toggle formControlName="paid_off">This loan is paid off</mat-slide-toggle>
+            </div>
+
+            <mat-form-field appearance="outline" *ngIf="form.controls.paid_off.value">
+                <mat-label>Paid off on</mat-label>
+                <input matInput type="date" [max]="today" formControlName="closed_date" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="wide">
+                <mat-label>Notes (optional)</mat-label>
+                <input matInput formControlName="notes" maxlength="255" autocomplete="off" />
+            </mat-form-field>
+        </div>
+
+        <p class="error" role="alert" aria-live="polite">{{ errorText }}</p>
+    </mat-dialog-content>
+
+    <mat-dialog-actions align="end">
+        <button type="button" class="btn btn-secondary" (click)="close()">Cancel</button>
+        <button type="submit" class="btn" [disabled]="saving">{{ saving ? 'Saving…' : (isNew ? 'Add loan' : 'Save') }}</button>
+    </mat-dialog-actions>
+</form>
+
+<!-- ===== Balance from the lender ===== -->
+<form *ngIf="data.mode === 'balance'" [formGroup]="balanceForm" (ngSubmit)="saveBalance()" novalidate>
+    <mat-dialog-content>
+        <p class="intro">
+            Copy the balance (payoff amount) from the lender's app or a statement. From that date on, the app uses
+            your number instead of its own estimate. Once or twice a year is plenty.
+        </p>
+        <div class="fields">
+            <mat-form-field appearance="outline">
+                <mat-label>Balance owed</mat-label>
+                <span matTextPrefix>$&nbsp;</span>
+                <input matInput type="number" step="0.01" min="0" formControlName="balance" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+                <mat-label>As of</mat-label>
+                <input matInput type="date" [max]="today" formControlName="date" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="wide">
+                <mat-label>Note (optional)</mat-label>
+                <input matInput formControlName="note" maxlength="255" placeholder="e.g. Honda app payoff amount" autocomplete="off" />
+            </mat-form-field>
+        </div>
+        <p class="error" role="alert" aria-live="polite">{{ errorText }}</p>
+    </mat-dialog-content>
+
+    <mat-dialog-actions align="end">
+        <button type="button" class="btn btn-secondary" (click)="close()">Cancel</button>
+        <button type="submit" class="btn" [disabled]="saving">{{ saving ? 'Saving…' : 'Save balance' }}</button>
+    </mat-dialog-actions>
+</form>

@@ -1,0 +1,196 @@
+<!-- FILE: src/app/debt/debt.html  (NEW file) -->
+<div class="page">
+    <div class="page-header">
+        <div>
+            <h1>Debt payoff</h1>
+            <p class="page-sub">What you owe, what you have paid off, and when each loan will be done.</p>
+        </div>
+        <div class="header-buttons">
+            <button type="button" class="btn btn-secondary btn-sm" (click)="load()">
+                <mat-icon aria-hidden="true">refresh</mat-icon>
+                Refresh
+            </button>
+            <button type="button" class="btn btn-sm" (click)="addLoan()">
+                <mat-icon aria-hidden="true">add</mat-icon>
+                Add loan
+            </button>
+        </div>
+    </div>
+
+    <p *ngIf="state === 'loading'" class="status-line">Loading…</p>
+    <div *ngIf="state === 'unavailable'" class="card empty-state">
+        <strong>Debt payoff is not available</strong>
+        <span>Check that the API is running and that the Phase 5 code and tables are in place.</span>
+    </div>
+
+    <ng-container *ngIf="summary as s">
+        <!-- Totals -->
+        <section class="kpi-grid debt-kpis" aria-label="Debt totals">
+            <article class="card accent kpi tone-debt">
+                <p class="kpi-label">Total owed</p>
+                <p class="kpi-value num">{{ usd(s.totals.balance) }}</p>
+                <p class="kpi-note">{{ s.totals.loans_active }} active {{ s.totals.loans_active === 1 ? 'loan' : 'loans' }}</p>
+            </article>
+            <article class="card accent kpi tone-income">
+                <p class="kpi-label">Paid this year</p>
+                <p class="kpi-value num">{{ usd(s.totals.paid_this_year) }}</p>
+                <p class="kpi-note">{{ usd(s.totals.principal_this_year) }} off the loans</p>
+            </article>
+            <article class="card accent kpi tone-expense">
+                <p class="kpi-label">Interest this year</p>
+                <p class="kpi-value num">{{ usdExact(s.totals.interest_this_year) }}</p>
+                <p class="kpi-note">The cost of borrowing</p>
+            </article>
+            <article class="card accent kpi tone-savings">
+                <p class="kpi-label">Debt-free by</p>
+                <p class="kpi-value num">{{ monthText(s.totals.debt_free_month) }}</p>
+                <p class="kpi-note">At your current payments</p>
+            </article>
+        </section>
+
+        <!-- One card per loan -->
+        <section class="loan-grid" aria-label="Loans">
+            <article *ngFor="let loan of s.loans" class="card accent loan" [ngClass]="statusTone(loan)"
+                [class.selected]="selected?.category_id === loan.category_id">
+                <div class="loan-head">
+                    <div>
+                        <h2 class="card-title">{{ loan.category }}</h2>
+                        <p class="card-sub" *ngIf="loan.lender">{{ loan.lender }}
+                            <span *ngIf="loan.interest_rate">· {{ loan.interest_rate }}% APR</span></p>
+                    </div>
+                    <span class="chip" [ngClass]="statusTone(loan)">{{ statusLabel(loan) }}</span>
+                </div>
+
+                <!-- Not set up: show only what has been paid -->
+                <ng-container *ngIf="loan.setup_needed">
+                    <ng-container *ngIf="loan.paid.payments; else noPayments">
+                        <p class="loan-balance num">{{ usd(loan.paid.all_time) }}</p>
+                        <p class="loan-note">Paid in {{ loan.paid.payments }} {{ loan.paid.payments === 1 ? 'payment' : 'payments' }}.
+                            Add the loan details to see what is left.</p>
+                    </ng-container>
+                    <ng-template #noPayments>
+                        <p class="loan-note">No payments recorded for this category.</p>
+                    </ng-template>
+                </ng-container>
+
+                <ng-container *ngIf="!loan.setup_needed">
+                    <p class="loan-balance num">{{ usdExact(loan.balance) }}
+                        <span class="loan-balance-label">{{ loan.status === 'paid_off' ? 'owed' : 'left to pay' }}</span></p>
+
+                    <div class="progress" role="progressbar" [attr.aria-valuenow]="progress(loan)" aria-valuemin="0"
+                        aria-valuemax="100" [attr.aria-label]="loan.category + ' paid off'">
+                        <span class="progress-fill" [style.width.%]="progress(loan)"></span>
+                    </div>
+                    <p class="loan-note">{{ progress(loan) }}% paid off
+                        <span *ngIf="loan.original_amount">of {{ usd(loan.original_amount) }}</span></p>
+                    <p class="loan-note scheduled-note" *ngIf="loan.status === 'active' && loan.scheduled.count">
+                        <mat-icon aria-hidden="true">event</mat-icon>
+                        {{ usdExact(loan.scheduled.total) }} scheduled ({{ loan.scheduled.count }}
+                        {{ loan.scheduled.count === 1 ? 'payment' : 'payments' }}, next {{ dayText(loan.scheduled.next_date) }}).
+                        It comes off on its date: about {{ usdExact(afterScheduled(loan)) }} left after.
+                    </p>
+
+                    <dl class="facts">
+                        <div>
+                            <dt>Paid so far</dt>
+                            <dd class="num">{{ usd(loan.paid.all_time) }}</dd>
+                        </div>
+                        <div>
+                            <dt>Interest paid</dt>
+                            <dd class="num">{{ usdExact(loan.since_opening?.interest) }}</dd>
+                        </div>
+                        <ng-container *ngIf="loan.status === 'active' && loan.projection as p">
+                            <div>
+                                <dt>Paid off in</dt>
+                                <dd>{{ p.paying_off ? monthText(p.payoff_month) : 'Not at this payment' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Payments left</dt>
+                                <dd>{{ paymentsLeft(loan) }}</dd>
+                            </div>
+                        </ng-container>
+                        <div *ngIf="loan.last_payment">
+                            <dt>Last payment</dt>
+                            <dd>{{ usdExact(loan.last_payment.amount) }} · {{ dayText(loan.last_payment.date) }}</dd>
+                        </div>
+                        <div *ngIf="loan.scheduled.count">
+                            <dt>Scheduled</dt>
+                            <dd>{{ loan.scheduled.count }} · next {{ dayText(loan.scheduled.next_date) }}</dd>
+                        </div>
+                    </dl>
+
+                    <p class="loan-flag" *ngIf="correctionNote(loan) as note">
+                        <mat-icon aria-hidden="true">info</mat-icon>{{ note }}
+                    </p>
+                </ng-container>
+
+                <div class="loan-actions">
+                    <ng-container *ngIf="!loan.setup_needed">
+                        <button type="button" class="btn btn-tone btn-sm" (click)="select(loan)"
+                            [attr.aria-pressed]="selected?.category_id === loan.category_id">
+                            {{ selected?.category_id === loan.category_id ? 'Showing details' : 'Show details' }}
+                        </button>
+                        <button type="button" class="btn btn-ghost btn-sm" *ngIf="loan.status === 'active'"
+                            (click)="updateBalance(loan)">Update balance</button>
+                        <button type="button" class="btn btn-ghost btn-sm" (click)="editLoan(loan)">Edit</button>
+                    </ng-container>
+                    <button type="button" class="btn btn-sm" *ngIf="loan.setup_needed" (click)="editLoan(loan)">
+                        Set up this loan
+                    </button>
+                </div>
+            </article>
+        </section>
+
+        <!-- Details for the selected loan -->
+        <section class="card detail" *ngIf="selected && !selected.setup_needed" aria-labelledby="detail-title">
+            <h2 class="card-title" id="detail-title">{{ selected.category }}: month by month</h2>
+            <p class="card-sub">Bars split each month's payment into what paid off the loan and what went to
+                interest. The line is what was still owed at the end of the month.</p>
+
+            <p *ngIf="historyState === 'loading'" class="status-line">Loading history…</p>
+            <p *ngIf="historyState === 'unavailable'" class="status-line">History is not available right now.</p>
+            <ag-charts *ngIf="historyState === 'ready'" class="chart chart-history"
+                [options]="historyChartOptions"></ag-charts>
+
+            <!-- Pay extra -->
+            <div class="scenario" *ngIf="selected.status === 'active'">
+                <h3 class="section-title">What if I pay more?</h3>
+                <form class="scenario-form" [formGroup]="scenarioForm" (ngSubmit)="runScenario()">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Extra each month</mat-label>
+                        <span matTextPrefix>$&nbsp;</span>
+                        <input matInput type="number" min="0" step="50" formControlName="extra" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>One-time payment now</mat-label>
+                        <span matTextPrefix>$&nbsp;</span>
+                        <input matInput type="number" min="0" step="100" formControlName="lump" />
+                    </mat-form-field>
+                    <button type="submit" class="btn" [disabled]="scenarioBusy || scenarioForm.invalid">
+                        Calculate
+                    </button>
+                </form>
+
+                <div class="scenario-result" *ngIf="scenario as r">
+                    <div class="mini">
+                        <p class="kpi-label">Now</p>
+                        <p class="mini-value">{{ r.current_plan.paying_off ? monthText(r.current_plan.payoff_month) : '—' }}</p>
+                        <p class="mini-note">{{ r.current_plan.months }} payments ·
+                            {{ usdExact(r.current_plan.interest_remaining) }} interest</p>
+                    </div>
+                    <div class="mini tone-income">
+                        <p class="kpi-label">With extra</p>
+                        <p class="mini-value text-tone">{{ r.with_extra.paying_off ? (r.with_extra.payoff_month ? monthText(r.with_extra.payoff_month) : 'Paid now') : '—' }}</p>
+                        <p class="mini-note">{{ r.with_extra.months }} payments ·
+                            {{ usdExact(r.with_extra.interest_remaining) }} interest</p>
+                    </div>
+                    <div class="mini">
+                        <p class="kpi-label">You save</p>
+                        <p class="mini-value">{{ usdExact(r.interest_saved) }}</p>
+                        <p class="mini-note">and {{ r.months_saved }} {{ r.months_saved === 1 ? 'month' : 'months' }}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </ng-container>
+</div>

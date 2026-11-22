@@ -1,6 +1,6 @@
 # FILE: BudgetTracker.Service.API/app.py  (REPLACE existing file)
 import json
-
+from Utils.DebtService import DebtService
 import psycopg2
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
@@ -357,3 +357,50 @@ def get_savings():
         return jsonify([])
 
     return jsonify(res.to_dict(orient='records'))
+
+# ----------------------------------------------------------------------
+# Debt payoff tracking (Phase 5). New routes only; /debt is unchanged.
+# ----------------------------------------------------------------------
+
+def debt_service():
+    repo = get_repo()
+    return DebtService(repo.cur, repo.conn)
+
+
+@app.route('/debtSummary', methods=['GET'])
+def debt_summary():
+    """Every debt category: paid so far, balance left, % paid off, payoff month."""
+    return jsonify(debt_service().summary())
+
+
+@app.route('/debtHistory', methods=['POST'])
+def debt_history():
+    """{"category_id": 54}: month by month paid, principal, interest, balance."""
+    return jsonify(debt_service().history(require_field(json_body(), 'category_id')))
+
+
+@app.route('/debtPayoffScenario', methods=['POST'])
+def debt_payoff_scenario():
+    """{"category_id": 54, "extra_monthly": 200, "lump_sum": 0}: what paying more saves."""
+    body = json_body()
+    return jsonify(debt_service().payoff_scenario(
+        require_field(body, 'category_id'), body.get('extra_monthly'), body.get('lump_sum')
+    ))
+
+
+@app.route('/debtAccounts', methods=['GET'])
+def debt_accounts():
+    """Loan settings and statement balances, one entry per debt category."""
+    return jsonify(debt_service().accounts())
+
+
+@app.route('/saveDebtAccount', methods=['POST'])
+def save_debt_account():
+    """{"account": {...}}: creates or updates the loan for one debt category."""
+    return jsonify(debt_service().save_account(require_field(json_body(), 'account')))
+
+
+@app.route('/saveDebtBalance', methods=['POST'])
+def save_debt_balance():
+    """{"category_id": 54, "date": "2026-11-22", "balance": 4577.54, "note": "..."}."""
+    return jsonify(debt_service().save_statement(json_body()))

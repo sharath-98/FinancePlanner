@@ -20,6 +20,7 @@ import { AuthInterceptor } from './auth/auth.interceptor';
 import { AuthModule } from './auth/auth-module';
 import { AgChartsModule } from 'ag-charts-angular';
 import { MatMomentDateModule, MomentDateAdapter } from '@angular/material-moment-adapter';
+import { DebtModule } from './debt/debt-module';
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -35,6 +36,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     BudgetPlannerModule,
     HomeModule,
     TransactionModule,
+    DebtModule,
     AuthModule,
     FontAwesomeModule,
     ToastrModule.forRoot(),
