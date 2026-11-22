@@ -1,0 +1,234 @@
+/* FILE: src/app/debt/debt.css  (NEW file). Uses the tokens and card/kpi styles from src/styles.scss */
+
+.status-line {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  margin: 0 0 var(--space-4);
+}
+
+/* ---------- Totals ---------- */
+.debt-kpis {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+/* ---------- Loan cards ---------- */
+.loan-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  margin-bottom: var(--space-4);
+}
+
+.loan {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.loan.selected {
+  box-shadow: var(--shadow-raised);
+  border-color: var(--tone, var(--border-strong));
+}
+
+.loan-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.loan-balance {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-display);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.loan-balance-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: var(--space-1);
+}
+
+.loan-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.scheduled-note {
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-start;
+  line-height: 1.4;
+}
+
+.scheduled-note mat-icon {
+  flex: none;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+
+.progress {
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tone, var(--brand));
+  transition: width 400ms var(--ease);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+}
+
+.facts div {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.facts dt {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.facts dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.loan-flag {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin: var(--space-1) 0 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--debt-soft);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+
+.loan-flag mat-icon {
+  flex: none;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--debt);
+}
+
+.loan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.header-buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ---------- Details ---------- */
+.detail {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-3);
+}
+
+.chart-history {
+  height: 380px;
+}
+
+.section-title {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.scenario-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.scenario-form mat-form-field {
+  width: 200px;
+}
+
+.scenario-result {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.mini {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.mini-value {
+  margin: 4px 0 0;
+  font-size: var(--fs-lg);
+  font-weight: 800;
+}
+
+.mini-note {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* ---------- Smaller screens ---------- */
+@media (max-width: 1000px) {
+  .debt-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .debt-kpis {
+    gap: var(--space-3);
+  }
+
+  .scenario-result {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-form mat-form-field {
+    width: 100%;
+  }
+
+  .chart-history {
+    height: 300px;
+  }
+}

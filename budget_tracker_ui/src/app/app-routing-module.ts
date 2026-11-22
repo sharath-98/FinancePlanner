@@ -6,12 +6,14 @@ import { Home } from './home/home';
 import { Transactions } from './transactions/transactions';
 import { Login } from './auth/login';
 import { authGuard } from './auth/auth.gaurd';
+import { Debt } from './debt/debt';
 
 const routes: Routes = [
   { path: 'login', component: Login },
   { path: 'planner', component: BudgetPlanner, canActivate: [authGuard] },
   { path: 'transactions', component: Transactions, canActivate: [authGuard] },
   { path: 'home', component: Home, canActivate: [authGuard] },
+  { path: 'debt', component: Debt, canActivate: [authGuard] },
   { path: '', component: Home, canActivate: [authGuard] },
 ];
 
