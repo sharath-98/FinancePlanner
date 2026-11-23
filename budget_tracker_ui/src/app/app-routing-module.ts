@@ -7,6 +7,7 @@ import { Transactions } from './transactions/transactions';
 import { Login } from './auth/login';
 import { authGuard } from './auth/auth.gaurd';
 import { Debt } from './debt/debt';
+import { Investments } from './investments/investments';
 
 const routes: Routes = [
   { path: 'login', component: Login },
@@ -14,6 +15,7 @@ const routes: Routes = [
   { path: 'transactions', component: Transactions, canActivate: [authGuard] },
   { path: 'home', component: Home, canActivate: [authGuard] },
   { path: 'debt', component: Debt, canActivate: [authGuard] },
+  { path: 'investments', component: Investments, canActivate: [authGuard] },
   { path: '', component: Home, canActivate: [authGuard] },
 ];
 

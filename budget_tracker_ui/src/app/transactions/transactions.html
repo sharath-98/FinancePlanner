@@ -14,6 +14,10 @@
                 <mat-icon aria-hidden="true">category</mat-icon>
                 Categories
             </button>
+            <button type="button" class="btn btn-secondary" *ngIf="investOptions" (click)="openMoveMoney()">
+                <mat-icon aria-hidden="true">swap_horiz</mat-icon>
+                Move money
+            </button>
         </div>
     </div>
 
@@ -108,10 +112,134 @@
                     </mat-form-field>
                 </div>
 
+                <!-- Investments: Stocks / Crypto categories -->
+                <fieldset class="invest-panel" *ngIf="tradeMode" [formGroup]="tradeForm">
+                    <legend>{{ isCrypto ? 'Crypto trade' : 'Stock trade' }}</legend>
+                    <div class="seg" role="group" aria-label="Buy or sell">
+                        <button type="button" [class.on]="isBuy" [attr.aria-pressed]="isBuy"
+                            (click)="tradeForm.patchValue({ side: 'buy', symbol: '' })">Buy</button>
+                        <button type="button" class="sell" [class.on]="!isBuy" [attr.aria-pressed]="!isBuy"
+                            (click)="tradeForm.patchValue({ side: 'sell', symbol: '' })">Sell</button>
+                    </div>
+
+                    <div class="fields">
+                        <mat-form-field appearance="outline" class="span-2" *ngIf="isBuy">
+                            <mat-label>Symbol</mat-label>
+                            <input matInput formControlName="symbol" [matAutocomplete]="autoSymbol" autocomplete="off"
+                                [placeholder]="isCrypto ? 'e.g. BTC' : 'e.g. VOO'" />
+                            <mat-autocomplete #autoSymbol="matAutocomplete">
+                                <mat-option *ngFor="let s of symbolChoices" [value]="s.symbol">
+                                    {{ s.symbol }}</mat-option>
+                            </mat-autocomplete>
+                            <mat-hint *ngIf="newSymbol">New {{ isCrypto ? 'coin' : 'symbol' }}: add its details below.</mat-hint>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="span-2" *ngIf="!isBuy">
+                            <mat-label>Symbol</mat-label>
+                            <mat-select formControlName="symbol">
+                                <mat-option *ngFor="let h of heldChoices" [value]="h.symbol">
+                                    {{ h.symbol }} · you hold {{ h.quantity }}</mat-option>
+                            </mat-select>
+                            <mat-hint *ngIf="!heldChoices.length">Nothing held in this account.</mat-hint>
+                        </mat-form-field>
+
+                        <ng-container *ngIf="newSymbol">
+                            <mat-form-field appearance="outline" *ngIf="!isCrypto">
+                                <mat-label>Kind</mat-label>
+                                <mat-select formControlName="assetType">
+                                    <mat-option value="stock">Stock</mat-option>
+                                    <mat-option value="etf">ETF</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" *ngIf="isCrypto">
+                                <mat-label>CoinGecko id</mat-label>
+                                <input matInput formControlName="quoteId" placeholder="e.g. solana" autocomplete="off" />
+                            </mat-form-field>
+                            <mat-form-field appearance="outline">
+                                <mat-label>Name (optional)</mat-label>
+                                <input matInput formControlName="name" maxlength="150" autocomplete="off" />
+                            </mat-form-field>
+                        </ng-container>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>{{ isCrypto ? 'Coins' : 'Shares' }}</mat-label>
+                            <input matInput type="number" step="any" min="0" formControlName="quantity" />
+                            <mat-hint *ngIf="!isBuy && heldOfSelected !== null">You hold {{ heldOfSelected }}</mat-hint>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline">
+                            <mat-label>Price per {{ isCrypto ? 'coin' : 'share' }}</mat-label>
+                            <span matTextPrefix>$&nbsp;</span>
+                            <input matInput type="number" step="any" min="0" formControlName="price" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline">
+                            <mat-label>Fees (optional)</mat-label>
+                            <span matTextPrefix>$&nbsp;</span>
+                            <input matInput type="number" step="0.01" min="0" formControlName="fees" />
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="span-2" *ngIf="isBuy">
+                            <mat-label>Money comes from</mat-label>
+                            <mat-select formControlName="funding">
+                                <mat-option value="new_money">New money (counts as saving)</mat-option>
+                                <mat-option value="transfer">Moved from another account</mat-option>
+                                <mat-option value="account_cash">Cash already in this account</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="span-2" *ngIf="isBuy && tradeForm.value.funding === 'transfer'">
+                            <mat-label>From account</mat-label>
+                            <mat-select formControlName="fromCategoryId">
+                                <mat-option *ngFor="let a of otherAccounts" [value]="a.category_id">{{ a.name }}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="span-2" *ngIf="!isBuy">
+                            <mat-label>Cash goes to</mat-label>
+                            <mat-select formControlName="destination">
+                                <mat-option value="keep">Keep as cash in this account</mat-option>
+                                <mat-option value="transfer">Move to another account</mat-option>
+                                <mat-option value="withdraw">Take out to spend</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="span-2" *ngIf="!isBuy && tradeForm.value.destination === 'transfer'">
+                            <mat-label>To account</mat-label>
+                            <mat-select formControlName="toCategoryId">
+                                <mat-option *ngFor="let a of otherAccounts" [value]="a.category_id">{{ a.name }}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+
+                    <div class="trade-total num">
+                        <span>{{ isBuy ? 'Amount' : 'You receive' }}</span>
+                        <strong>{{ usdExact(tradeTotal) }}</strong>
+                    </div>
+                    <p class="trade-gain num" *ngIf="saleGain !== null">Gain on these {{ isCrypto ? 'coins' : 'shares' }}
+                        (average cost): <strong [class.pos]="(saleGain ?? 0) >= 0" [class.neg]="(saleGain ?? 0) < 0">{{ usdExact(saleGain) }}</strong></p>
+                    <p class="invest-note">
+                        <ng-container *ngIf="isBuy && tradeForm.value.funding === 'new_money'">Saved as a Saving
+                            transaction too, so Budget planning goes up by this amount, as today.</ng-container>
+                        <ng-container *ngIf="isBuy && tradeForm.value.funding !== 'new_money'">Not new savings: Budget
+                            planning does not change.</ng-container>
+                        <ng-container *ngIf="!isBuy">A sale is not new savings: Budget planning does not change.</ng-container>
+                    </p>
+                </fieldset>
+
+                <!-- Investments: Dividends categories -->
+                <fieldset class="invest-panel" *ngIf="dividendMode">
+                    <legend>Dividend from</legend>
+                    <mat-form-field appearance="outline" class="full">
+                        <mat-label>Stock that paid it</mat-label>
+                        <mat-select [formControl]="dividendSymbol">
+                            <mat-option *ngFor="let sym of dividendChoices" [value]="sym">{{ sym }}</mat-option>
+                        </mat-select>
+                        <mat-hint>Paid into {{ dividendCategory?.account }}, as cash</mat-hint>
+                    </mat-form-field>
+                </fieldset>
+
                 <div class="actions">
                     <button type="button" class="btn btn-secondary" (click)="onReset()">Reset</button>
-                    <button type="submit" class="btn" [disabled]="transactionForm.invalid || saving">Save
-                        transaction</button>
+                    <button type="submit" class="btn" [disabled]="transactionForm.invalid || saving">{{
+                        tradeMode ? (isBuy ? 'Save buy' : 'Save sale') : dividendMode ? 'Save dividend' : 'Save transaction'
+                        }}</button>
                 </div>
             </form>
         </section>

@@ -1,0 +1,256 @@
+<!-- FILE: src/app/investments/investments.html  (NEW file) -->
+<div class="page">
+    <div class="page-header">
+        <div>
+            <h1>Investments</h1>
+            <p class="page-sub">What your savings are worth today, what you put in, and what they earned.</p>
+        </div>
+        <div class="header-buttons">
+            <span class="fetched" *ngIf="summary">Prices {{ fetchedText(summary.prices.last_fetched) }}</span>
+            <button type="button" class="btn btn-secondary btn-sm" (click)="refreshPrices()" [disabled]="refreshing">
+                <mat-icon aria-hidden="true">refresh</mat-icon>
+                {{ refreshing ? 'Refreshing…' : 'Refresh prices' }}
+            </button>
+        </div>
+    </div>
+
+    <p *ngIf="state === 'loading'" class="status-line">Loading…</p>
+    <div *ngIf="state === 'unavailable'" class="card empty-state">
+        <strong>Investments are not available</strong>
+        <span>Check that the API is running with the Phase 6 code and tables.</span>
+    </div>
+
+    <ng-container *ngIf="summary as s">
+        <!-- Totals -->
+        <section class="kpi-grid invest-kpis" aria-label="Totals">
+            <article class="card accent kpi tone-savings">
+                <p class="kpi-label">Total value</p>
+                <p class="kpi-value num">{{ usd(s.totals.value) }}</p>
+                <p class="kpi-note">SCP {{ usd(s.totals.scp) }} · SJ {{ usd(s.totals.sj) }}</p>
+            </article>
+            <article class="card accent kpi tone-neutral">
+                <p class="kpi-label">Money put in</p>
+                <p class="kpi-value num">{{ usd(s.totals.put_in) }}</p>
+                <p class="kpi-note">Cost of holdings, savings and moves</p>
+            </article>
+            <article class="card accent kpi tone-income">
+                <p class="kpi-label">Gain</p>
+                <p class="kpi-value num" [ngClass]="gainClass(s.totals.gain)">{{ signed(s.totals.gain) }}</p>
+                <p class="kpi-note">{{ pct(s.totals.gain_pct) }} on what you put in</p>
+            </article>
+            <article class="card accent kpi tone-debt">
+                <p class="kpi-label">Dividends + interest, {{ s.as_of.slice(0, 4) }}</p>
+                <p class="kpi-value num">{{ usdExact(s.totals.dividends_this_year + s.totals.interest_this_year) }}</p>
+                <p class="kpi-note">Dividends {{ usdExact(s.totals.dividends_this_year) }} · Interest
+                    {{ usdExact(s.totals.interest_this_year) }}</p>
+            </article>
+        </section>
+        <p class="estimate-note" *ngIf="s.totals.estimated_accounts">
+            <mat-icon aria-hidden="true">info</mat-icon>
+            {{ s.totals.estimated_accounts }} {{ s.totals.estimated_accounts === 1 ? 'account is' : 'accounts are' }}
+            estimated from your entries. Set their balance to make the totals exact.
+        </p>
+
+        <!-- Allocation -->
+        <section class="card alloc" aria-labelledby="alloc-title" *ngIf="s.allocation.length">
+            <div class="row-head">
+                <h2 class="card-title" id="alloc-title">Where it sits</h2>
+                <span class="card-sub">Share of total value by account type</span>
+            </div>
+            <div class="alloc-bar" role="img" aria-label="Allocation by account type">
+                <span *ngFor="let a of s.allocation" [style.flex]="a.pct + ' 1 0'"
+                    [style.background]="allocationColors[a.key]"></span>
+            </div>
+            <ul class="alloc-legend">
+                <li *ngFor="let a of s.allocation">
+                    <span class="dot" [style.background]="allocationColors[a.key]"></span>
+                    <strong>{{ a.label }}</strong>
+                    <span class="num muted">{{ usd(a.value) }} · {{ a.pct | number: '1.0-1' }}%</span>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Accounts -->
+        <section aria-labelledby="acc-title" class="accounts">
+            <h2 class="section-title" id="acc-title">Accounts</h2>
+            <div *ngFor="let g of groups" class="group">
+                <p class="group-title">{{ g.title }}</p>
+                <div class="card-grid">
+                    <article *ngFor="let c of g.cards" class="card acct" [class.estimated]="c.estimated"
+                        [class.empty]="c.value == null">
+                        <div class="acct-head">
+                            <h3>{{ c.name }}</h3>
+                            <span class="chip" [ngClass]="c.owner === 'SJ' ? 'tone-savings' : 'tone-income'">{{ c.owner }}</span>
+                        </div>
+                        <p class="acct-value num">{{ c.value == null ? 'Not set' : usdExact(c.value) }}</p>
+
+                        <ng-container *ngIf="c.kind === 'property' && c.value != null">
+                            <p class="acct-line num">Value {{ usd(c.home_value) }}
+                                <ng-container *ngIf="c.loan_set_up"> − loan {{ usd(c.loan_left) }}</ng-container>
+                                = equity</p>
+                        </ng-container>
+                        <p class="acct-line num" *ngIf="c.put_in != null && c.value != null">
+                            {{ c.kind === 'cash' && !c.estimated ? 'Deposits' : c.tracks_holdings ? 'Cost' : 'Put in' }}
+                            {{ usd(c.put_in) }} ·
+                            <span [ngClass]="gainClass(c.gain)">{{ c.kind === 'cash' && !c.estimated ? 'interest ' : '' }}{{ signed(c.gain) }}</span>
+                        </p>
+                        <p class="acct-line" *ngIf="c.income_this_year">
+                            {{ c.kind === 'cash' ? 'Interest' : 'Dividends' }} this year {{ usdExact(c.income_this_year) }}</p>
+                        <p class="acct-line" *ngIf="c.tracks_holdings && c.status === 'ok'">
+                            {{ c.positions }} {{ c.positions === 1 ? 'holding' : 'holdings' }}<ng-container
+                                *ngIf="c.cash"> · cash {{ usdExact(c.cash) }}</ng-container></p>
+
+                        <p class="acct-source">
+                            <span class="badge" *ngIf="c.estimated">Estimated</span>
+                            {{ c.source }}
+                        </p>
+                        <p class="acct-warn" *ngIf="c.missing_prices?.length">No price yet for {{ c.missing_prices?.join(', ') }}
+                            (using cost)</p>
+                        <p class="acct-warn" *ngIf="c.kind === 'property' && c.loan_category && !c.loan_set_up">
+                            {{ c.loan_category }} is not set up on the Debt page, so no loan is subtracted.</p>
+
+                        <div class="acct-actions">
+                            <button type="button" class="btn btn-ghost btn-sm" *ngIf="canUpdateBalance(c)"
+                                (click)="updateBalance(c)">{{ updateLabel(c) }}</button>
+                            <button type="button" class="btn btn-tone btn-sm" *ngIf="c.tracks_holdings && c.status === 'ok'"
+                                (click)="selectHoldings(c.category_id)">Holdings</button>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- Holdings -->
+        <section class="card holdings" aria-labelledby="hold-title" *ngIf="holdingsAccounts.length" id="holdings">
+            <div class="row-head">
+                <div>
+                    <h2 class="card-title" id="hold-title">Holdings<ng-container *ngIf="holdings">: {{ holdings.name }}</ng-container></h2>
+                    <p class="card-sub" *ngIf="holdings?.holdings_entered">From your buys and sells on the Transactions page ·
+                        tracking since {{ dayText(holdings?.tracking_since) }}</p>
+                </div>
+                <div class="chips" role="group" aria-label="Account">
+                    <button type="button" *ngFor="let a of holdingsAccounts" class="pill"
+                        [class.on]="a.category_id === selectedHoldings" [attr.aria-pressed]="a.category_id === selectedHoldings"
+                        (click)="selectHoldings(a.category_id)">{{ a.name }}</button>
+                </div>
+            </div>
+
+            <p *ngIf="holdingsState === 'loading'" class="status-line">Loading holdings…</p>
+            <div *ngIf="holdingsState === 'ready' && holdings && !holdings.holdings_entered" class="empty-state">
+                <strong>No holdings entered for {{ holdings.name }}</strong>
+                <span>Send the positions (symbol, shares, total cost) to set them up once; after that, buys and sells
+                    come from the Transactions page.</span>
+            </div>
+
+            <ng-container *ngIf="holdingsState === 'ready' && holdings?.holdings_entered && holdings as h">
+                <div class="table-box">
+                    <table class="htable">
+                        <thead>
+                            <tr>
+                                <th scope="col" class="left">Symbol</th>
+                                <th scope="col">Shares</th>
+                                <th scope="col">Avg cost</th>
+                                <th scope="col">Price</th>
+                                <th scope="col">Value</th>
+                                <th scope="col">Gain</th>
+                                <th scope="col">Dividends {{ s.as_of.slice(0, 4) }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let r of h.rows" class="num">
+                                <th scope="row" class="left"><strong>{{ r.symbol }}</strong></th>
+                                <td>{{ qty(r.quantity) }}</td>
+                                <td>{{ price(r.avg_cost) }}</td>
+                                <td [title]="r.price_date ? 'Price from ' + r.price_source + ', ' + dayText(r.price_date) : 'No price yet: using cost'">
+                                    {{ price(r.price) }}<span class="muted small" *ngIf="r.price_source === 'manual'"> (typed)</span></td>
+                                <td><strong>{{ usdExact(r.value) }}</strong></td>
+                                <td [ngClass]="gainClass(r.gain)">{{ signedExact(r.gain) }} <span class="small">{{ pct(r.gain_pct) }}</span></td>
+                                <td>{{ r.dividends_this_year ? usdExact(r.dividends_this_year) : '—' }}</td>
+                            </tr>
+                            <tr *ngIf="h.cash" class="num">
+                                <th scope="row" class="left">Cash</th>
+                                <td></td><td></td><td></td>
+                                <td>{{ usdExact(h.cash) }}</td>
+                                <td></td><td></td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="num">
+                                <th scope="row" class="left">Total</th>
+                                <td></td><td></td><td></td>
+                                <td><strong>{{ usdExact(h.value) }}</strong></td>
+                                <td [ngClass]="gainClass(h.gain)"><strong>{{ signedExact(h.gain) }}</strong></td>
+                                <td>{{ usdExact(h.dividends_this_year) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <p class="card-sub" *ngIf="h.realized_this_year">Gain from sales this year: <span
+                        [ngClass]="gainClass(h.realized_this_year)">{{ signedExact(h.realized_this_year) }}</span></p>
+
+                <div *ngIf="h.activity.length" class="activity">
+                    <h3 class="sub-title">Recent buys and sells</h3>
+                    <ul>
+                        <li *ngFor="let t of h.activity">
+                            <span class="side" [class.sell]="t.side === 'sell'">{{ t.side === 'buy' ? 'Buy' : 'Sell' }}</span>
+                            <span class="num">{{ qty(t.quantity) }} {{ t.symbol }} @ {{ price(t.price) }}</span>
+                            <span class="num muted">{{ usdExact(t.amount) }} · {{ dayText(t.date) }}<ng-container
+                                    *ngIf="fundingText(t.funding)"> · {{ fundingText(t.funding) }}</ng-container></span>
+                            <button type="button" class="icon-btn" (click)="deleteTrade(t.id, t.side + ' ' + t.symbol)"
+                                [attr.aria-label]="'Delete ' + t.side + ' ' + t.symbol + ' on ' + dayText(t.date)">
+                                <mat-icon aria-hidden="true">delete</mat-icon>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </ng-container>
+        </section>
+
+        <!-- Dividends and interest -->
+        <section class="card earn" aria-labelledby="earn-title" *ngIf="income as inc">
+            <div class="row-head">
+                <div>
+                    <h2 class="card-title" id="earn-title">Dividends and interest received<ng-container
+                            *ngIf="incomeOwner">: {{ incomeOwner }}</ng-container></h2>
+                    <p class="card-sub">Exactly what you entered on the Transactions page</p>
+                </div>
+                <div class="chips" role="group" aria-label="Whose accounts">
+                    <button type="button" *ngFor="let o of owners" class="pill" [class.on]="o.value === incomeOwner"
+                        [attr.aria-pressed]="o.value === incomeOwner" (click)="setIncomeOwner(o.value)">{{ o.label }}</button>
+                </div>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="year-field">
+                    <mat-label>Year</mat-label>
+                    <mat-select [value]="incomeYear" (selectionChange)="onYearChange($event.value)">
+                        <mat-option *ngFor="let y of years" [value]="y">{{ y }}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+            <div class="earn-layout">
+                <div class="earn-chart">
+                    <ag-charts class="chart" [options]="incomeChart"></ag-charts>
+                </div>
+                <div class="earn-lists">
+                    <h3 class="sub-title">By account <span class="muted small">({{ inc.year }})</span></h3>
+                    <ul class="list">
+                        <li *ngFor="let a of inc.by_account" class="num">
+                            <span>{{ a.income_category }}</span><strong>{{ usdExact(a.year_total) }}</strong>
+                        </li>
+                        <li class="num total">
+                            <span>Total</span><strong>{{ usdExact(inc.totals.dividends + inc.totals.interest) }}</strong>
+                        </li>
+                    </ul>
+                    <h3 class="sub-title">Dividends by stock</h3>
+                    <ul class="list">
+                        <li *ngFor="let d of inc.by_symbol" class="num">
+                            <span><strong>{{ d.symbol ?? d.name }}</strong><span class="muted small"
+                                    *ngIf="!incomeOwner && d.symbol && d.owner"> {{ d.owner }}</span></span><span>{{ usdExact(d.amount) }}</span>
+                        </li>
+                        <li *ngIf="!inc.by_symbol.length" class="muted">No dividends this year.</li>
+                    </ul>
+                    <p class="muted small">All time: dividends {{ usdExact(inc.totals.all_time_dividends) }} ·
+                        interest {{ usdExact(inc.totals.all_time_interest) }}</p>
+                </div>
+            </div>
+        </section>
+    </ng-container>
+</div>

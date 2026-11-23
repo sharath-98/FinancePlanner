@@ -1,0 +1,375 @@
+/* FILE: src/app/investments/investments.css  (NEW file). Uses the tokens and card/kpi styles in src/styles.scss */
+
+.header-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fetched,
+.status-line {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.invest-kpis {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.pos {
+  color: var(--positive);
+}
+
+.neg {
+  color: var(--negative);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.small {
+  font-size: var(--fs-xs);
+}
+
+.estimate-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.estimate-note mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* ---------- Allocation ---------- */
+.alloc {
+  margin-top: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.alloc-bar {
+  display: flex;
+  gap: 2px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--surface-sunken);
+}
+
+.alloc-bar span {
+  display: block;
+  min-width: 4px;
+}
+
+.alloc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+}
+
+.alloc-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+/* ---------- Accounts ---------- */
+.section-title {
+  font-size: var(--fs-md);
+  font-weight: 800;
+  margin: var(--space-5) 0 0;
+}
+
+.group-title {
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+.acct {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.acct.empty {
+  border-style: dashed;
+  background: var(--surface-2);
+}
+
+.acct-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.acct-head h3 {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 800;
+}
+
+.acct-value {
+  margin: 2px 0 0;
+  font-size: var(--fs-lg);
+  font-weight: 800;
+}
+
+.acct.estimated .acct-value {
+  color: var(--text-muted);
+}
+
+.acct-line,
+.acct-source,
+.acct-warn {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.acct-source {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.acct-warn {
+  color: var(--debt);
+  font-size: var(--fs-xs);
+}
+
+.badge {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--debt-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.acct-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+/* ---------- Holdings ---------- */
+.holdings,
+.earn {
+  margin-top: var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pill.on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+}
+
+.table-box {
+  overflow-x: auto;
+}
+
+.htable {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.htable th,
+.htable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.htable thead th {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.htable .left {
+  text-align: left;
+}
+
+.htable tfoot th,
+.htable tfoot td {
+  border-bottom: 0;
+}
+
+.sub-title {
+  margin: var(--space-3) 0 var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 800;
+}
+
+.activity ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+
+.side {
+  min-width: 40px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--income-soft);
+  color: var(--income);
+  font-weight: 800;
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+
+.side.sell {
+  background: var(--expense-soft);
+  color: var(--expense);
+}
+
+.icon-btn {
+  margin-left: auto;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--surface-sunken);
+  color: var(--negative);
+}
+
+/* ---------- Dividends and interest ---------- */
+.year-field {
+  width: 120px;
+}
+
+.earn-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+}
+
+.earn-chart {
+  flex: 999 1 520px;
+  min-width: 0;
+}
+
+.chart {
+  display: block;
+  height: 300px;
+}
+
+.earn-lists {
+  flex: 1 1 280px;
+}
+
+.list {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+
+.list li.total {
+  border-bottom: 0;
+  font-weight: 800;
+}
+
+@media (max-width: 1000px) {
+  .invest-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .chart {
+    height: 240px;
+  }
+}
