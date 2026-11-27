@@ -1,5 +1,6 @@
 // FILE: src/app/budget-planner/budget-planner.ts  (REPLACE existing file)
 import { HttpClient } from '@angular/common/http';
+import { InvestmentService } from '../investments/investment-service';
 import { Component, OnInit, ViewChild } from '@angular/core';
 import {
   type CellClassParams,
@@ -54,6 +55,20 @@ export class BudgetPlanner implements OnInit {
   rowData: any = [];
   rowExpenseData: any = [];
   rowSavingsData: any = [];
+
+  /* ---------- Savings filter: All / SCP / SJ / Children (display only) ---------- */
+  /** What the Savings grid shows; the section total and Unallocated always use every savings row. */
+  displayedSavingsData: any = [];
+  savingsFilter: '' | 'SCP' | 'SJ' | 'Child' = '';
+  readonly savingsFilters: { value: '' | 'SCP' | 'SJ' | 'Child'; label: string }[] = [
+    { value: '', label: 'All' },
+    { value: 'SCP', label: 'SCP' },
+    { value: 'SJ', label: 'SJ' },
+    { value: 'Child', label: 'Children' },
+  ];
+  /** Savings category name -> SCP / SJ / Child, from the investment accounts. */
+  private savingsOwner = new Map<string, 'SCP' | 'SJ' | 'Child'>();
+  savingsFilterAvailable = false;
   rowDebtData: any = [];
 
   /** Year total of what is left after expenses, savings and debt (shown in the banner). */
@@ -352,6 +367,7 @@ export class BudgetPlanner implements OnInit {
     } else if (category == 'Savings') {
       this.calculateColTotals(this.rowSavingsData, colId);
       this.calGrandTotal(this.rowSavingsData, 'Savings');
+      this.applySavingsFilter();
       this.savingsGridApi.refreshCells({ force: true });
     } else if (category == 'Debts') {
       this.calculateColTotals(this.rowDebtData, colId);
@@ -377,6 +393,7 @@ export class BudgetPlanner implements OnInit {
     private bdjSrv: BudgetPlannerService,
     private toastr: ToastrService,
     private dialog: MatDialog,
+    private invest: InvestmentService,
   ) {}
 
   ngOnInit(): void {
@@ -386,6 +403,41 @@ export class BudgetPlanner implements OnInit {
       this.years.push(y);
     }
     this.getInitialGrids();
+    this.loadSavingsOwners();
+  }
+
+  /** Who each savings category belongs to (SCP, SJ or a child), from the Investments setup. */
+  private loadSavingsOwners(): void {
+    this.invest.options().subscribe({
+      next: (o) => {
+        this.savingsOwner = new Map(
+          o.accounts.map((a) => [a.name, a.kind === 'child' ? 'Child' : (a.owner as 'SCP' | 'SJ')]),
+        );
+        this.savingsFilterAvailable = this.savingsOwner.size > 0;
+        this.applySavingsFilter();
+      },
+      error: () => (this.savingsFilterAvailable = false), // API without Investments: no filter, page as before
+    });
+  }
+
+  setSavingsFilter(value: '' | 'SCP' | 'SJ' | 'Child'): void {
+    this.savingsFilter = value;
+    this.applySavingsFilter();
+  }
+
+  /** The rows for the chosen owner, plus their own Total row. Rows are shared, so edits still save as before. */
+  applySavingsFilter(): void {
+    const rows = this.rowSavingsData ?? [];
+    if (!this.savingsFilter || !rows.length) {
+      this.displayedSavingsData = rows;
+      return;
+    }
+    const body = rows.slice(0, -1).filter((r: any) => this.savingsOwner.get(r['Savings']) === this.savingsFilter);
+    const total: any = { Savings: 'Total' };
+    for (const m of [...this.months, 'Total']) {
+      total[m] = Math.round(body.reduce((t: number, r: any) => t + (Number(r[m]) || 0), 0) * 100) / 100;
+    }
+    this.displayedSavingsData = [...body, total];
   }
 
   /** Loads all four tables together, so the Unallocated banner is complete as soon as it appears. */
@@ -408,6 +460,7 @@ export class BudgetPlanner implements OnInit {
       this.rowData = Array.isArray(income) ? income : [];
       this.rowExpenseData = Array.isArray(expenses) ? expenses : [];
       this.rowSavingsData = Array.isArray(savings) ? savings : [];
+      this.applySavingsFilter();
       this.rowDebtData = Array.isArray(debts) ? debts : [];
 
       this.calGrandTotal(this.rowData, 'Income');

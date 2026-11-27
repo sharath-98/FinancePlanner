@@ -16,6 +16,29 @@ import {
   InvestmentSummary,
 } from './investment-service';
 
+/** One section of accounts, with its totals (used by both the list and the cards). */
+export interface AccountGroup {
+  key: string;
+  title: string;
+  cards: InvestmentCard[];
+  value: number;
+  putIn: number;
+  gain: number;
+  /** HYSA / savings: the gain is the interest entered. */
+  cashOnly: boolean;
+}
+
+const KIND_TO_SLICE: Record<string, { key: string; label: string }> = {
+  brokerage: { key: 'stocks', label: 'Stocks' },
+  retirement: { key: 'retirement', label: '401K' },
+  cash: { key: 'cash', label: 'HYSA & savings' },
+  crypto: { key: 'crypto', label: 'Crypto' },
+  hsa: { key: 'hsa', label: 'HSA' },
+  property: { key: 'property', label: 'Real estate' },
+  metal: { key: 'other', label: 'Gold & other' },
+  other: { key: 'other', label: 'Gold & other' },
+};
+
 const GROUPS: { title: string; kinds: string[] }[] = [
   { title: 'Brokerage and crypto', kinds: ['brokerage', 'crypto'] },
   { title: 'Cash: HYSA and savings', kinds: ['cash'] },
@@ -46,8 +69,14 @@ export class Investments implements OnInit, OnDestroy {
   state: 'loading' | 'ready' | 'unavailable' = 'loading';
   /** Which tab: SCP & SJ's own accounts, or the children's accounts. */
   tab: 'household' | 'children' = 'household';
-  householdGroups: { title: string; cards: InvestmentCard[] }[] = [];
-  childGroups: { title: string; subtotal: number; cards: InvestmentCard[] }[] = [];
+  householdGroups: AccountGroup[] = [];
+  childGroups: AccountGroup[] = [];
+  /** List (compact rows) or the cards. Remembered in this browser. */
+  view: 'list' | 'cards' = 'list';
+  /** SCP & SJ tab: '' = both, or one person's accounts only. */
+  ownerFilter: '' | 'SCP' | 'SJ' = '';
+  private collapsed = new Set<string>();
+  private ownAccounts: InvestmentCard[] = [];
   hh = this.emptyTotals();
   kids = { ...this.emptyTotals(), byChild: [] as { name: string; value: number }[], accounts: 0 };
   hhAllocation: InvestmentSummary['allocation'] = [];
@@ -88,6 +117,12 @@ export class Investments implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    try {
+      const saved = localStorage.getItem('investments.view');
+      if (saved === 'cards' || saved === 'list') this.view = saved;
+    } catch {
+      /* storage unavailable: default to the list */
+    }
     const year = new Date().getFullYear();
     for (let y = year; y >= year - 5; y--) this.years.push(y);
     this.dark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -114,28 +149,19 @@ export class Investments implements OnInit, OnDestroy {
       next: (data) => {
         this.summary = data;
         this.state = 'ready';
-        const own = data.accounts.filter((a) => a.kind !== 'child');
+        this.ownAccounts = data.accounts.filter((a) => a.kind !== 'child');
         const children = data.accounts.filter((a) => a.kind === 'child');
-        this.householdGroups = GROUPS.map((g) => ({
-          title: g.title,
-          cards: own.filter((a) => g.kinds.includes(a.kind) && this.showCard(a)),
-        })).filter((g) => g.cards.length);
+        this.buildHousehold();
         // Children tab: one section per child, each with its own subtotal
         const names = [...new Set(children.map((a) => a.beneficiary || 'Child'))].sort();
-        this.childGroups = names.map((name) => {
-          const cards = children.filter((a) => (a.beneficiary || 'Child') === name);
-          return { title: `For ${name}`, subtotal: cards.reduce((t, c) => t + (c.value ?? 0), 0), cards };
-        });
-        this.hh = this.totalsOf(own);
+        this.childGroups = names.map((name) =>
+          this.makeGroup(`child:${name}`, `For ${name}`, children.filter((a) => (a.beneficiary || 'Child') === name)),
+        );
         this.kids = {
           ...this.totalsOf(children),
-          byChild: this.childGroups.map((g) => ({ name: g.title.replace(/^For /, ''), value: g.subtotal })),
+          byChild: this.childGroups.map((g) => ({ name: g.title.replace(/^For /, ''), value: g.value })),
           accounts: children.length,
         };
-        // Allocation without the children's slice, shares worked out again over SCP & SJ only
-        const mine = data.allocation.filter((a) => a.key !== 'children');
-        const sum = mine.reduce((t, a) => t + a.value, 0);
-        this.hhAllocation = mine.map((a) => ({ ...a, pct: sum > 0 ? Math.round((a.value / sum) * 1000) / 10 : 0 }));
         this.holdingsAccounts = data.accounts.filter((a) => a.tracks_holdings);
         const keep = this.holdingsAccounts.find((a) => a.category_id === this.selectedHoldings);
         const first = keep ?? this.holdingsAccounts.find((a) => a.status === 'ok') ?? this.holdingsAccounts[0];
@@ -150,6 +176,67 @@ export class Investments implements OnInit, OnDestroy {
 
   setTab(tab: 'household' | 'children'): void {
     this.tab = tab;
+  }
+
+  setView(view: 'list' | 'cards'): void {
+    this.view = view;
+    try {
+      localStorage.setItem('investments.view', view);
+    } catch {
+      /* storage unavailable: the choice just isn't remembered */
+    }
+  }
+
+  setOwnerFilter(owner: '' | 'SCP' | 'SJ'): void {
+    this.ownerFilter = owner;
+    this.buildHousehold();
+  }
+
+  toggleGroup(key: string): void {
+    if (this.collapsed.has(key)) this.collapsed.delete(key);
+    else this.collapsed.add(key);
+  }
+
+  isCollapsed(key: string): boolean {
+    return this.collapsed.has(key);
+  }
+
+  /** SCP & SJ tab: groups, totals and allocation for the chosen owner(s). */
+  private buildHousehold(): void {
+    const own = this.ownAccounts.filter((a) => !this.ownerFilter || a.owner === this.ownerFilter);
+    this.householdGroups = GROUPS.map((g) =>
+      this.makeGroup(g.title, g.title, own.filter((a) => g.kinds.includes(a.kind) && this.showCard(a))),
+    ).filter((g) => g.cards.length);
+    this.hh = this.totalsOf(own);
+    const slices = new Map<string, { key: string; label: string; value: number; pct: number }>();
+    for (const a of own) {
+      const sl = KIND_TO_SLICE[a.kind];
+      if (!sl || !a.value || a.value <= 0) continue;
+      const cur = slices.get(sl.key) ?? { ...sl, value: 0, pct: 0 };
+      cur.value += a.value;
+      slices.set(sl.key, cur);
+    }
+    const sum = [...slices.values()].reduce((t, x) => t + x.value, 0);
+    const order = ['stocks', 'retirement', 'cash', 'crypto', 'hsa', 'property', 'other'];
+    this.hhAllocation = order
+      .filter((k) => slices.has(k))
+      .map((k) => {
+        const x = slices.get(k)!;
+        return { ...x, pct: sum > 0 ? Math.round((x.value / sum) * 1000) / 10 : 0 };
+      });
+  }
+
+  private makeGroup(key: string, title: string, cards: InvestmentCard[]): AccountGroup {
+    const t = this.totalsOf(cards);
+    return {
+      key,
+      title,
+      cards,
+      value: t.value,
+      putIn: t.putIn,
+      gain: t.gain,
+      cashOnly: cards.length > 0 && cards.every((c) => c.kind === 'cash'),
+    };
   }
 
   private emptyTotals() {
@@ -281,6 +368,12 @@ export class Investments implements OnInit, OnDestroy {
       .subscribe((saved) => {
         if (saved) this.load();
       });
+  }
+
+  /** From the list's menu: show that account's holdings and scroll to them. */
+  showHoldings(categoryId: number): void {
+    this.selectHoldings(categoryId);
+    setTimeout(() => document.getElementById('holdings')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   /** Add a new account (no card) or edit one (card). */

@@ -80,8 +80,14 @@
             </mat-expansion-panel-header>
 
             <ng-template matExpansionPanelContent>
+                <div class="savings-filter" role="group" aria-label="Show savings for" *ngIf="savingsFilterAvailable">
+                    <button type="button" *ngFor="let f of savingsFilters" class="filter-pill" [class.on]="f.value === savingsFilter"
+                        [attr.aria-pressed]="f.value === savingsFilter" (click)="setSavingsFilter(f.value)">{{ f.label }}</button>
+                    <span class="filter-note" *ngIf="savingsFilter">Showing {{ savingsFilter === 'Child' ? "the children's" : savingsFilter }}
+                        savings only. The section total and Unallocated still include all savings.</span>
+                </div>
                 <ag-grid-angular [theme]="savingsTheme" [domLayout]="domLayout" [getRowClass]="getRowClass"
-                    [rowData]="rowSavingsData" [columnDefs]="colSavingsDefs" [defaultColDef]="defaultColDef"
+                    [rowData]="displayedSavingsData" [columnDefs]="colSavingsDefs" [defaultColDef]="defaultColDef"
                     (gridReady)="onGridReady($event, 'Savings')"
                     (cellValueChanged)="onCellValueChanged($event, 'Savings')" />
             </ng-template>
