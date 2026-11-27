@@ -373,3 +373,66 @@
     height: 240px;
   }
 }
+
+/* ---------- Each dividend payment ---------- */
+.details-head {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.dtable {
+  min-width: 560px;
+}
+
+.dtable .month-row th,
+.dtable .month-row td {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.group-sub {
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+
+/* ---------- Tabs: SCP & SJ | Children ---------- */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs button {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 -3px 0 transparent;
+}
+
+.tabs button.on {
+  color: var(--brand);
+  box-shadow: inset 0 -3px 0 var(--brand);
+}
+
+.tab-amount {
+  margin-left: 6px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.child-title {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: var(--fs-md);
+  font-weight: 800;
+}
+
+.kids-empty {
+  margin-top: var(--space-4);
+}

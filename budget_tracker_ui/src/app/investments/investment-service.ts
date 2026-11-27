@@ -5,13 +5,18 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../shared/app-config';
 
-export type AccountKind = 'brokerage' | 'crypto' | 'cash' | 'retirement' | 'hsa' | 'property' | 'metal' | 'other';
+export type AccountKind =
+  | 'brokerage' | 'crypto' | 'cash' | 'retirement' | 'hsa' | 'property' | 'metal' | 'other' | 'child';
 
 export interface InvestmentCard {
   category_id: number;
   name: string;
   owner: 'SCP' | 'SJ';
   kind: AccountKind;
+  /** The child a 529 / NJBEST / Trump Account is for. */
+  beneficiary?: string | null;
+  income_category_id?: number | null;
+  debt_category_id?: number | null;
   institution: string | null;
   tracks_holdings: boolean;
   income_category: string | null;
@@ -46,6 +51,8 @@ export interface InvestmentSummary {
     gain_pct: number | null;
     scp: number;
     sj: number;
+    children?: number;
+    by_child?: { name: string; value: number }[];
     dividends_this_year: number;
     interest_this_year: number;
     estimated_accounts: number;
@@ -117,6 +124,42 @@ export interface InvestmentIncome {
   totals: { dividends: number; interest: number; all_time_dividends: number; all_time_interest: number };
 }
 
+export interface DividendDetails {
+  year: number;
+  owner: 'SCP' | 'SJ' | null;
+  months: { month: string; label: string; total: number; payments: number }[];
+  rows: {
+    transaction_id: number;
+    date: string;
+    month: string;
+    symbol: string;
+    account: string;
+    owner: 'SCP' | 'SJ';
+    amount: number;
+    shares: number | null;
+    per_share: number | null;
+    approximate: boolean;
+  }[];
+  total: number;
+  approximate_rows: number;
+}
+
+export interface AccountChoices {
+  kinds: AccountKind[];
+  unlinked_savings: { id: number; name: string; owner: string }[];
+  income_categories: { id: number; name: string }[];
+  debt_categories: { id: number; name: string }[];
+}
+
+export interface InvestmentAccountInput {
+  category_id: number;
+  kind: AccountKind;
+  institution?: string;
+  income_category_id?: number | null;
+  debt_category_id?: number | null;
+  beneficiary?: string | null;
+}
+
 export interface InvestmentOptions {
   accounts: {
     category_id: number;
@@ -148,6 +191,18 @@ export class InvestmentService {
   /** owner: '' for everyone, or 'SCP' / 'SJ'. */
   income(year: number, owner: '' | 'SCP' | 'SJ' = ''): Observable<InvestmentIncome> {
     return this.http.post<InvestmentIncome>(this.base + 'investmentIncome', { year, owner: owner || null });
+  }
+
+  dividendDetails(year: number, owner: '' | 'SCP' | 'SJ' = ''): Observable<DividendDetails> {
+    return this.http.post<DividendDetails>(this.base + 'dividendDetails', { year, owner: owner || null });
+  }
+
+  accountChoices(): Observable<AccountChoices> {
+    return this.http.get<AccountChoices>(this.base + 'investmentAccountChoices');
+  }
+
+  saveAccount(account: InvestmentAccountInput): Observable<{ category_id: number; kind: string }> {
+    return this.http.post<any>(this.base + 'saveInvestmentAccount', { account });
   }
 
   options(): Observable<InvestmentOptions> {

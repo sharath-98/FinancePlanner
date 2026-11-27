@@ -5,8 +5,10 @@ import { AgChartOptions } from 'ag-charts-community';
 import { ToastrService } from 'ngx-toastr';
 import { chartTheme, toneColor } from '../shared/chart-theme';
 import { formatUsd, formatUsdExact } from '../shared/design-tokens';
+import { AccountDialog, AccountDialogData } from './account-dialog';
 import { BalanceDialog, BalanceDialogData } from './balance-dialog';
 import {
+  DividendDetails,
   Holdings,
   InvestmentCard,
   InvestmentIncome,
@@ -19,6 +21,7 @@ const GROUPS: { title: string; kinds: string[] }[] = [
   { title: 'Cash: HYSA and savings', kinds: ['cash'] },
   { title: 'Retirement and HSA', kinds: ['retirement', 'hsa'] },
   { title: 'Property and gold', kinds: ['property', 'metal', 'other'] },
+  // Children's accounts get one section per child (see load()).
 ];
 const ALLOCATION_COLORS: Record<string, string> = {
   stocks: '#2f6fd0',
@@ -28,6 +31,7 @@ const ALLOCATION_COLORS: Record<string, string> = {
   hsa: '#3b8fa8',
   property: '#d2493f',
   other: '#8a7e63',
+  children: '#e0779a',
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -40,7 +44,13 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export class Investments implements OnInit, OnDestroy {
   summary: InvestmentSummary | null = null;
   state: 'loading' | 'ready' | 'unavailable' = 'loading';
-  groups: { title: string; cards: InvestmentCard[] }[] = [];
+  /** Which tab: SCP & SJ's own accounts, or the children's accounts. */
+  tab: 'household' | 'children' = 'household';
+  householdGroups: { title: string; cards: InvestmentCard[] }[] = [];
+  childGroups: { title: string; subtotal: number; cards: InvestmentCard[] }[] = [];
+  hh = this.emptyTotals();
+  kids = { ...this.emptyTotals(), byChild: [] as { name: string; value: number }[], accounts: 0 };
+  hhAllocation: InvestmentSummary['allocation'] = [];
   holdingsAccounts: InvestmentCard[] = [];
 
   selectedHoldings: number | null = null;
@@ -58,6 +68,10 @@ export class Investments implements OnInit, OnDestroy {
   ];
   income: InvestmentIncome | null = null;
   incomeChart!: AgChartOptions;
+  /** "Each dividend payment" table (loaded when opened). */
+  showDetails = false;
+  details: DividendDetails | null = null;
+  detailsState: 'idle' | 'loading' | 'ready' | 'unavailable' = 'idle';
 
   refreshing = false;
   usd = formatUsd;
@@ -100,10 +114,28 @@ export class Investments implements OnInit, OnDestroy {
       next: (data) => {
         this.summary = data;
         this.state = 'ready';
-        this.groups = GROUPS.map((g) => ({
+        const own = data.accounts.filter((a) => a.kind !== 'child');
+        const children = data.accounts.filter((a) => a.kind === 'child');
+        this.householdGroups = GROUPS.map((g) => ({
           title: g.title,
-          cards: data.accounts.filter((a) => g.kinds.includes(a.kind) && this.showCard(a)),
+          cards: own.filter((a) => g.kinds.includes(a.kind) && this.showCard(a)),
         })).filter((g) => g.cards.length);
+        // Children tab: one section per child, each with its own subtotal
+        const names = [...new Set(children.map((a) => a.beneficiary || 'Child'))].sort();
+        this.childGroups = names.map((name) => {
+          const cards = children.filter((a) => (a.beneficiary || 'Child') === name);
+          return { title: `For ${name}`, subtotal: cards.reduce((t, c) => t + (c.value ?? 0), 0), cards };
+        });
+        this.hh = this.totalsOf(own);
+        this.kids = {
+          ...this.totalsOf(children),
+          byChild: this.childGroups.map((g) => ({ name: g.title.replace(/^For /, ''), value: g.subtotal })),
+          accounts: children.length,
+        };
+        // Allocation without the children's slice, shares worked out again over SCP & SJ only
+        const mine = data.allocation.filter((a) => a.key !== 'children');
+        const sum = mine.reduce((t, a) => t + a.value, 0);
+        this.hhAllocation = mine.map((a) => ({ ...a, pct: sum > 0 ? Math.round((a.value / sum) * 1000) / 10 : 0 }));
         this.holdingsAccounts = data.accounts.filter((a) => a.tracks_holdings);
         const keep = this.holdingsAccounts.find((a) => a.category_id === this.selectedHoldings);
         const first = keep ?? this.holdingsAccounts.find((a) => a.status === 'ok') ?? this.holdingsAccounts[0];
@@ -116,9 +148,31 @@ export class Investments implements OnInit, OnDestroy {
     });
   }
 
+  setTab(tab: 'household' | 'children'): void {
+    this.tab = tab;
+  }
+
+  private emptyTotals() {
+    return { value: 0, putIn: 0, gain: 0, gainPct: null as number | null, estimated: 0 };
+  }
+
+  /** Value, money put in and gain over some accounts (same rules as the overall totals). */
+  private totalsOf(cards: InvestmentCard[]) {
+    const t = this.emptyTotals();
+    for (const c of cards) {
+      if (c.value == null) continue;
+      t.value += c.value;
+      if (c.put_in != null) t.putIn += c.put_in;
+      if (c.estimated) t.estimated += 1;
+    }
+    t.gain = t.value - t.putIn;
+    t.gainPct = t.putIn > 0 ? (t.gain / t.putIn) * 100 : null;
+    return t;
+  }
+
   /** Accounts with no data at all (e.g. an unused savings account) stay hidden. */
   private showCard(a: InvestmentCard): boolean {
-    if (a.kind === 'property' || a.tracks_holdings) return true;
+    if (a.kind === 'property' || a.kind === 'child' || a.tracks_holdings) return true;
     return !(a.estimated && !a.value && !a.put_in_records && !a.income_total);
   }
 
@@ -145,6 +199,35 @@ export class Investments implements OnInit, OnDestroy {
       },
       error: () => (this.income = null),
     });
+    if (this.showDetails) this.loadDetails();
+  }
+
+  toggleDetails(): void {
+    this.showDetails = !this.showDetails;
+    if (this.showDetails) this.loadDetails();
+  }
+
+  private loadDetails(): void {
+    this.detailsState = 'loading';
+    this.invest.dividendDetails(this.incomeYear, this.incomeOwner).subscribe({
+      next: (d) => {
+        this.details = d;
+        this.detailsState = 'ready';
+      },
+      error: () => {
+        this.details = null;
+        this.detailsState = 'unavailable';
+      },
+    });
+  }
+
+  rowsOf(month: string): DividendDetails['rows'] {
+    return this.details?.rows.filter((r) => r.month === month) ?? [];
+  }
+
+  perShare(n: number | null): string {
+    if (n == null) return '—';
+    return '$' + n.toFixed(n < 1 ? 4 : 2);
   }
 
   setIncomeOwner(owner: '' | 'SCP' | 'SJ'): void {
@@ -197,6 +280,20 @@ export class Investments implements OnInit, OnDestroy {
       .afterClosed()
       .subscribe((saved) => {
         if (saved) this.load();
+      });
+  }
+
+  /** Add a new account (no card) or edit one (card). */
+  openAccount(card?: InvestmentCard): void {
+    const data: AccountDialogData = { card };
+    this.dialog
+      .open(AccountDialog, { width: '560px', maxWidth: '94vw', autoFocus: 'dialog', data })
+      .afterClosed()
+      .subscribe((saved) => {
+        if (saved) {
+          this.load();
+          this.loadIncome();
+        }
       });
   }
 
