@@ -21,6 +21,7 @@ import { AuthModule } from './auth/auth-module';
 import { AgChartsModule } from 'ag-charts-angular';
 import { MatMomentDateModule, MomentDateAdapter } from '@angular/material-moment-adapter';
 import { DebtModule } from './debt/debt-module';
+import { InvestmentsModule } from './investments/investments-module';
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -37,6 +38,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     HomeModule,
     TransactionModule,
     DebtModule,
+    InvestmentsModule,
     AuthModule,
     FontAwesomeModule,
     ToastrModule.forRoot(),

@@ -17,6 +17,7 @@ from Utils.AuthUtil import (
 )
 from Utils.BudgetRepository import BudgetRepository
 from Utils.InsightsService import InsightsService
+from Utils.InvestmentService import InvestmentService
 from Utils.RequestUtil import (
     ApiError,
     json_body,
@@ -404,3 +405,85 @@ def save_debt_account():
 def save_debt_balance():
     """{"category_id": 54, "date": "2026-11-22", "balance": 4577.54, "note": "..."}."""
     return jsonify(debt_service().save_statement(json_body()))
+
+
+# ----------------------------------------------------------------------
+# Investments (Phase 6). New routes only; nothing above changes.
+# Needs Database/phase6_investments.sql. Price API key: secrets.json (git-ignored), see Utils/PriceService.py.
+# ----------------------------------------------------------------------
+
+def investment_service():
+    return InvestmentService(get_repo(), app.config)
+
+
+@app.route('/investmentSummary', methods=['GET'])
+def investment_summary():
+    """Totals, allocation and one card per investment account."""
+    return jsonify(investment_service().summary())
+
+
+@app.route('/holdings', methods=['POST'])
+def investment_holdings():
+    """{"category_id": 23}: shares, average cost, price, value and gain per stock, plus recent trades."""
+    return jsonify(investment_service().holdings(require_field(json_body(), 'category_id')))
+
+
+@app.route('/investmentIncome', methods=['POST'])
+def investment_income():
+    """{"year": 2026, "owner": "SCP" | "SJ" | null}: dividends and interest entered, by month, account and stock."""
+    body = json_body()
+    return jsonify(investment_service().income(body.get('year'), body.get('owner')))
+
+
+@app.route('/investmentOptions', methods=['GET'])
+def investment_options():
+    """Accounts, what each holds, dividend categories and known symbols (for the Transactions page)."""
+    return jsonify(investment_service().options())
+
+
+@app.route('/saveTrade', methods=['POST'])
+def save_trade():
+    """{"trade": {...}}: a buy or sell and where the money came from or went (see InvestmentService)."""
+    return jsonify(investment_service().save_trade(require_field(json_body(), 'trade')))
+
+
+@app.route('/deleteTrade', methods=['POST'])
+def delete_trade():
+    """{"id": 12}: removes a trade (a new-money buy goes with its transaction and planner amount)."""
+    return jsonify(investment_service().delete_trade(require_field(json_body(), 'id')))
+
+
+@app.route('/saveDividend', methods=['POST'])
+def save_dividend():
+    """{"transaction": {...as /saveTransaction}, "symbol": "VOO"}: a dividend and the stock that paid it."""
+    return jsonify(investment_service().save_dividend(json_body()))
+
+
+@app.route('/saveTransfer', methods=['POST'])
+def save_transfer():
+    """{"transfer": {"date", "from_category_id", "to_category_id" (null = taken out), "amount", "note"}}."""
+    return jsonify(investment_service().save_transfer(require_field(json_body(), 'transfer')))
+
+
+@app.route('/deleteTransfer', methods=['POST'])
+def delete_transfer():
+    """{"id": 5}: removes a move that is not part of a trade."""
+    return jsonify(investment_service().delete_transfer(require_field(json_body(), 'id')))
+
+
+@app.route('/saveValuation', methods=['POST'])
+def save_valuation():
+    """{"valuation": {"category_id", "date", "value", "note"}}: a balance from an app or statement."""
+    return jsonify(investment_service().save_valuation(require_field(json_body(), 'valuation')))
+
+
+@app.route('/refreshPrices', methods=['POST'])
+def refresh_prices():
+    """{"force": false}: fetches prices for everything held (Finnhub / CoinGecko)."""
+    return jsonify(investment_service().refresh_prices(json_body().get('force', False)))
+
+
+@app.route('/savePrice', methods=['POST'])
+def save_price():
+    """{"symbol": "VOO", "price": 512.3}: a price typed in by hand."""
+    return jsonify(investment_service().save_price(json_body()))

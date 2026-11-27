@@ -29,7 +29,10 @@ import { CategoryManagerDialog } from './category-manager-dialog';
 import { EntryFinderDialog } from './entry-finder-dialog';
 import { TransactionActions } from './transaction-actions';
 import { gridTheme, moneyFormatter } from '../shared/grid-theme';
-import { formatUsd } from '../shared/design-tokens';
+import { formatUsd, formatUsdExact } from '../shared/design-tokens';
+import { FormControl } from '@angular/forms';
+import { InvestmentOptions, InvestmentService, localIso } from '../investments/investment-service';
+import { MoveMoneyDialog } from '../investments/move-money-dialog';
 
 interface Category {
   id: number;
@@ -124,6 +127,12 @@ export class Transactions implements OnInit {
   isNewMerchantEntry = false;
 
   saving = false;
+
+  /* ---------- Investments (Phase 6): extra fields for Stocks/Crypto and Dividends categories ---------- */
+  investOptions: InvestmentOptions | null = null;
+  usdExact = formatUsdExact;
+  tradeForm!: FormGroup;
+  dividendSymbol = new FormControl<string>('', { nonNullable: true });
   /** On phones the form is collapsed until "Add transaction" is tapped. */
   formOpen = false;
 
@@ -231,7 +240,22 @@ export class Transactions implements OnInit {
     private auth: AuthService,
     private dialog: MatDialog,
     private actions: TransactionActions,
+    private invest: InvestmentService,
   ) {
+    this.tradeForm = this.fb.group({
+      side: ['buy'],
+      symbol: [''],
+      assetType: ['stock'],
+      name: [''],
+      quoteId: [''],
+      quantity: [null as number | null],
+      price: [null as number | null],
+      fees: [null as number | null],
+      funding: ['new_money'],
+      fromCategoryId: [null as number | null],
+      destination: ['keep'],
+      toCategoryId: [null as number | null],
+    });
     this.transactionForm = this.fb.group({
       type: ['expense', Validators.required],
       category: ['', [Validators.required, categoryPicked]],
@@ -280,6 +304,11 @@ export class Transactions implements OnInit {
     });
 
     merchantControl.valueChanges.subscribe((value) => this.onMerchantInput(value));
+
+    // Investments: show the Buy/Sell or Dividend fields for the matching categories
+    this.loadInvestOptions();
+    categoryControl.valueChanges.subscribe(() => this.syncInvestMode());
+    this.tradeForm.valueChanges.subscribe(() => this.syncInvestMode());
 
     this.loadTransactions();
   }
@@ -450,6 +479,14 @@ export class Transactions implements OnInit {
 
   onSubmit(): void {
     if (this.transactionForm.invalid || this.saving) return;
+    if (this.tradeMode) {
+      this.submitTrade();
+      return;
+    }
+    if (this.dividendMode) {
+      this.submitDividend();
+      return;
+    }
 
     const value = this.transactionForm.value;
     const payload = {
@@ -490,6 +527,240 @@ export class Transactions implements OnInit {
   onReset(): void {
     this.formDir.resetForm(this.defaultValues());
     this.clearMerchants();
+    this.resetInvestFields();
+  }
+
+  /* ---------- Investments (Phase 6) ---------- */
+
+  private loadInvestOptions(): void {
+    this.invest.options().subscribe({
+      next: (o) => {
+        this.investOptions = o;
+        this.syncInvestMode();
+      },
+      error: () => (this.investOptions = null), // API without Phase 6: the form works as before
+    });
+  }
+
+  private get selectedCategoryId(): number | null {
+    const c = this.transactionForm?.get('category')?.value;
+    return c && typeof c === 'object' && c.id ? Number(c.id) : null;
+  }
+
+  /** The investment account behind the selected Saving category, when it tracks shares. */
+  get tradeAccount(): InvestmentOptions['accounts'][number] | null {
+    const id = this.selectedCategoryId;
+    if (!id || !this.investOptions || this.transactionForm.get('type')!.value !== 'saving') return null;
+    return this.investOptions.accounts.find((a) => a.category_id === id && a.tracks_holdings) ?? null;
+  }
+
+  /** The dividends category selected, with the account it is paid into. */
+  get dividendCategory(): InvestmentOptions['dividend_categories'][number] | null {
+    const id = this.selectedCategoryId;
+    if (!id || !this.investOptions || this.transactionForm.get('type')!.value !== 'income') return null;
+    return this.investOptions.dividend_categories.find((d) => d.income_category_id === id) ?? null;
+  }
+
+  get tradeMode(): boolean {
+    return !!this.tradeAccount;
+  }
+
+  get dividendMode(): boolean {
+    return !!this.dividendCategory;
+  }
+
+  get isCrypto(): boolean {
+    return this.tradeAccount?.kind === 'crypto';
+  }
+
+  get isBuy(): boolean {
+    return this.tradeForm.value.side !== 'sell';
+  }
+
+  /** Stocks/coins already known that fit this account (for the Buy list). */
+  get symbolChoices(): InvestmentOptions['securities'] {
+    const text = String(this.tradeForm.value.symbol ?? '').trim().toUpperCase();
+    return (this.investOptions?.securities ?? [])
+      .filter((s) => (this.isCrypto ? s.asset_type === 'crypto' : s.asset_type !== 'crypto'))
+      .filter((s) => !text || s.symbol.startsWith(text) || (s.name ?? '').toUpperCase().includes(text))
+      .slice(0, 20);
+  }
+
+  /** What this account holds (for the Sell list). */
+  get heldChoices(): InvestmentOptions['accounts'][number]['held'] {
+    return this.tradeAccount?.held ?? [];
+  }
+
+  /** Symbols for "Stock that paid it": what the account holds first, then other known symbols
+   *  (e.g. SPAXX, Fidelity's cash fund, which pays dividends but is not a holding). */
+  get dividendChoices(): string[] {
+    const d = this.dividendCategory;
+    const account = this.investOptions?.accounts.find((a) => a.category_id === d?.account_category_id);
+    const held = (account?.held ?? []).map((h) => h.symbol);
+    const wantCrypto = account?.kind === 'crypto';
+    const others = (this.investOptions?.securities ?? [])
+      .filter((s) => (s.asset_type === 'crypto') === wantCrypto && !held.includes(s.symbol))
+      .map((s) => s.symbol);
+    return [...held, ...others];
+  }
+
+  /** Accounts money can come from / go to (not this one). */
+  get otherAccounts(): InvestmentOptions['accounts'] {
+    const id = this.tradeAccount?.category_id;
+    return (this.investOptions?.accounts ?? []).filter((a) => a.category_id !== id);
+  }
+
+  get newSymbol(): boolean {
+    const sym = String(this.tradeForm.value.symbol ?? '').trim().toUpperCase();
+    return !!sym && this.isBuy && !(this.investOptions?.securities ?? []).some((s) => s.symbol === sym);
+  }
+
+  get heldOfSelected(): number | null {
+    const sym = String(this.tradeForm.value.symbol ?? '').toUpperCase();
+    return this.heldChoices.find((h) => h.symbol === sym)?.quantity ?? null;
+  }
+
+  /** Shares x price, plus fees on a buy / minus fees on a sale. */
+  get tradeTotal(): number {
+    const q = Number(this.tradeForm.value.quantity) || 0;
+    const p = Number(this.tradeForm.value.price) || 0;
+    const f = Number(this.tradeForm.value.fees) || 0;
+    const gross = Math.round(q * p * 100) / 100;
+    return this.isBuy ? gross + f : Math.max(0, gross - f);
+  }
+
+  /** On a sale: proceeds minus the average cost of the shares sold. */
+  get saleGain(): number | null {
+    if (this.isBuy) return null;
+    const sym = String(this.tradeForm.value.symbol ?? '').toUpperCase();
+    const held = this.heldChoices.find((h) => h.symbol === sym);
+    const q = Number(this.tradeForm.value.quantity) || 0;
+    if (!held || !q) return null;
+    return this.tradeTotal - held.avg_cost * q;
+  }
+
+  /** Merchant and amount only matter where a normal transaction is saved. */
+  private syncInvestMode(): void {
+    if (!this.transactionForm) return;
+    const merchant = this.transactionForm.get('merchant')!;
+    const amount = this.transactionForm.get('amount')!;
+    const trade = this.tradeMode;
+    const needsMerchant = !trade || (this.isBuy && this.tradeForm.value.funding === 'new_money');
+    if (needsMerchant && merchant.disabled) merchant.enable({ emitEvent: false });
+    if (!needsMerchant && merchant.enabled) merchant.disable({ emitEvent: false });
+    if (trade) {
+      if (amount.enabled) amount.disable({ emitEvent: false });
+      amount.setValue(this.tradeTotal || '', { emitEvent: false });
+    } else if (amount.disabled) {
+      amount.enable({ emitEvent: false });
+      amount.setValue('', { emitEvent: false });
+    }
+  }
+
+  private resetInvestFields(): void {
+    this.tradeForm.reset(
+      { side: 'buy', symbol: '', assetType: 'stock', name: '', quoteId: '', quantity: null, price: null,
+        fees: null, funding: 'new_money', fromCategoryId: null, destination: 'keep', toCategoryId: null },
+      { emitEvent: false },
+    );
+    this.dividendSymbol.setValue('');
+    this.syncInvestMode();
+  }
+
+  private submitTrade(): void {
+    const account = this.tradeAccount!;
+    const t = this.tradeForm.value;
+    const value = this.transactionForm.getRawValue();
+    const symbol = String(t.symbol ?? '').trim().toUpperCase();
+    const problem =
+      !symbol ? 'Enter the symbol.' :
+      !(Number(t.quantity) > 0) ? 'Enter the number of shares.' :
+      !(Number(t.price) >= 0) || t.price === null || t.price === '' ? 'Enter the price per share.' :
+      this.isBuy && t.funding === 'transfer' && !t.fromCategoryId ? 'Choose the account the money comes from.' :
+      !this.isBuy && t.destination === 'transfer' && !t.toCategoryId ? 'Choose the account the cash goes to.' :
+      this.newSymbol && this.isCrypto && !String(t.quoteId ?? '').trim() ? 'For a new coin, enter its CoinGecko id (e.g. bitcoin).' :
+      null;
+    if (problem) {
+      this.toastr.warning(problem);
+      return;
+    }
+    const trade: any = {
+      category_id: account.category_id,
+      side: this.isBuy ? 'buy' : 'sell',
+      symbol,
+      quantity: Number(t.quantity),
+      price: Number(t.price),
+      fees: Number(t.fees) || 0,
+      date: localIso(value.date),
+      notes: value.details ?? '',
+    };
+    if (this.newSymbol) {
+      trade.asset_type = this.isCrypto ? 'crypto' : t.assetType;
+      trade.name = String(t.name ?? '').trim();
+      if (this.isCrypto) trade.quote_id = String(t.quoteId ?? '').trim().toLowerCase();
+    }
+    if (this.isBuy) {
+      trade.funding = t.funding;
+      if (t.funding === 'new_money') {
+        trade.transaction = { paidby: value.paidby, merchant: value.merchant, details: value.details ?? '' };
+      }
+      if (t.funding === 'transfer') trade.from_category_id = t.fromCategoryId;
+    } else {
+      trade.destination = t.destination;
+      if (t.destination === 'transfer') trade.to_category_id = t.toCategoryId;
+    }
+    this.saving = true;
+    this.invest.saveTrade(trade).subscribe({
+      next: () => this.afterInvestSave(value, this.isBuy ? `Bought ${trade.quantity} ${symbol}.` : `Sold ${trade.quantity} ${symbol}.`),
+      error: (err) => {
+        this.saving = false;
+        this.toastr.error(err?.error?.error ?? 'Could not save the trade.');
+      },
+    });
+  }
+
+  private submitDividend(): void {
+    const symbol = this.dividendSymbol.value;
+    if (!symbol) {
+      this.toastr.warning('Choose the stock that paid the dividend.');
+      return;
+    }
+    const value = this.transactionForm.getRawValue();
+    const transaction = { ...value, date: new Date(value.date).toISOString(), details: value.details ?? '' };
+    this.saving = true;
+    this.invest.saveDividend(transaction, symbol).subscribe({
+      next: () => this.afterInvestSave(value, `Dividend from ${symbol} saved.`),
+      error: (err) => {
+        this.saving = false;
+        this.toastr.error(err?.error?.error ?? 'Could not save the dividend.');
+      },
+    });
+  }
+
+  /** Same reset as a normal save, keeping the category so a run of trades is quick to enter. */
+  private afterInvestSave(value: any, message: string): void {
+    this.saving = false;
+    this.toastr.success(message);
+    this.formDir.resetForm({
+      ...this.defaultValues(),
+      type: value.type,
+      category: value.category,
+      merchant: value.merchant ?? '',
+      date: value.date,
+      paidby: value.paidby,
+      currency: value.currency,
+    });
+    const side = this.tradeForm.value.side;
+    this.resetInvestFields();
+    this.tradeForm.patchValue({ side }, { emitEvent: false });
+    this.showMonthOf(value.date);
+    this.loadTransactions();
+    this.loadInvestOptions();
+  }
+
+  /** Moves between investment accounts (HYSA -> Real Estate, ...) or out to spend. */
+  openMoveMoney(): void {
+    this.dialog.open(MoveMoneyDialog, { width: '560px', maxWidth: '94vw', autoFocus: 'dialog' });
   }
 
   private defaultValues() {
